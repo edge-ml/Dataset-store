@@ -4,12 +4,13 @@ from os.path import join
 import struct
 import numpy as np
 from scipy.signal import resample
-import lttb
+import lttbc
+import time
 
 
 DATA_PREFIX = "DATA"
 
-
+cache = {}
 
 class BinaryStore():
 
@@ -21,10 +22,16 @@ class BinaryStore():
         self._path = join(DATA_PREFIX, self._id + ".bin")
 
     def loadSeries(self):
-        with open(self._path, "rb") as f:
-            len = struct.unpack("I", f.read(4))[0]
-            self.time_arr = np.asarray(struct.unpack("I" * len, f.read(len * 4)))
-            self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)))
+        if self._id not  in cache:
+            with open(self._path, "rb") as f:
+                len = struct.unpack("I", f.read(4))[0]
+                self.time_arr = np.asarray(struct.unpack("I" * len, f.read(len * 4)))
+                self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)))
+            cache[self._id] = self
+        else:
+            print("Using cache")
+            self.time_arr = cache[self._id].time_arr
+            self.data_arr = cache[self._id].data_arr
 
 
     def saveSeries(self):
@@ -35,36 +42,35 @@ class BinaryStore():
 
     def getPart(self, start_time, end_time, max_resolution=None):
         max_resolution = int(float(max_resolution))
-        print(start_time, end_time)
 
         start_index = 0
         end_index = len(self.time_arr) -1
 
-        if (start_time != "undefined"):
-            start_index = np.searchsorted(self.time_arr, start_time)
+        t_start = time.time()
+        if start_time != "undefined" and end_time != "undefined":
+            end_time = int(end_time)
+            start_time = int(start_time)
+            print("search")
+            print(self.time_arr[:15])
+            [start_index, end_index] = np.searchsorted(self.time_arr, [start_time, end_time])
+            print(start_time, ": ", start_index)
+            print(end_time, ": ", end_index)
+        # if (start_time != "undefined"):
+        #     start_index = np.searchsorted(self.time_arr, start_time)
 
-        if (end_time != "undefined"):
-            end_index = np.searchsorted(self.time_arr, end_time)
-        
-        print("idx new: ", start_index, end_index)
-
+        # if (end_time != "undefined"):
+        #     end_index = np.searchsorted(self.time_arr, end_time)
+        t_end = time.time()
+        print("Search: ", t_end - t_start)
         time_res = self.time_arr[start_index:end_index]
         data_res = self.data_arr[start_index:end_index]
-
-        print("Len_before: ", len(time_res))
-
+        print("LEN: ", len(time_res), ";;;;", start_index, end_index, "<==>", start_time, end_time)
         if max_resolution is not None and len(time_res) > max_resolution:
-            # [data_res, time_res] = resample(data_res, max_resolution, t=time_res)
-
-            data = np.asarray([time_res, data_res]).T
-            print(data.shape)
-            res = lttb.downsample(data, n_out=max_resolution*2)
-            return res
-
-            data_res = res[1]
-            time_res = res[0]
-
-        return np.asarray([time_res, data_res]).T
+            print("Downsample")
+            [time_res, data_res] = lttbc.downsample(time_res, data_res, max_resolution)
+        res = np.asarray([time_res, data_res]).T
+        res = np.ascontiguousarray(res)
+        return res
 
 
 

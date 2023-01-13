@@ -21,7 +21,6 @@ class DatasetDBManager:
         return ts
 
     def getDatasetById(self, dataset_id, project_id):
-        print(project_id)
         return self.ds_collection.find_one({"_id": ObjectId(dataset_id), "projectId": ObjectId(project_id)})
 
     def getDatasetsInProjet(self, project_id):

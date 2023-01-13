@@ -2,6 +2,7 @@ from src.db.dataset import DatasetDBManager
 from src.binaryStore import BinaryStore
 from typing import Union
 from bson import ObjectId
+import time
 
 
 
@@ -70,13 +71,25 @@ class DatasetController():
             binStore.delete()
         
     def getDataSetByIdStartEnd(self, id, projectId, start, end, max_resolution):
+        t = time.time()
         dataset = self.dbm.getDatasetById(id, project_id=projectId)
+        t_end = time.time()
+        print("DB_access: ", t_end - t)
+
         ts_ids = [x["_id"] for x in dataset["timeSeries"]]
         res = []
+        t_start = time.time()
         for t in ts_ids:
+            t_start_bin = time.time()
             binStore = BinaryStore(t)
             binStore.loadSeries()
+            t_end_bin = time.time()
+            print("Load data: ", t_end_bin - t_start_bin)
+            t_start_part = time.time()
             d = binStore.getPart(start ,end, max_resolution)
-            print(d)
+            t_end_part = time.time()
+            print("Part: ", t_end_part - t_start_part)
             res.append(d)
+        t_end = time.time()
+        print("Assemble: ", t_end - t_start)
         return res;

@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn 
 import json
 from src.Utils.JsonEncoder import JSONEncoder
+import time
+import orjson
 
 from src.controller.datasetController import DatasetController
 
@@ -32,7 +34,6 @@ async def createDataset(body: Request, project: str = Header()):
 @app.get("/project")
 async def getDatasetsInProject(project: str = Header()):
     data = ctrl.getDatasetInProject(project)
-    print(data)
     return Response(json.dumps(data, cls=JSONEncoder), media_type="application/json")
 
 # Get dataset
@@ -44,9 +45,17 @@ async def getDataset(id, project: str = Header()):
 
 @app.get("/{id}/ts/{start}/{end}/{max_resolution}")
 async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = Header()):
-    print(start, end, max_resolution)
+    t = time.time()
     dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
-    return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
+    t_end = time.time()
+    print("generate: ", t_end - t)
+    t = time.time()
+    # res = json.dumps(dataset, cls=JSONEncoder)
+    res = orjson.dumps(dataset, option = orjson.OPT_SERIALIZE_NUMPY)
+    t_end = time.time()
+    print("Json: ", t_end - t)
+
+    return Response(res, media_type="application/json")
 
 # Get metadata of dataset
 @app.get("/{id}/meta")
