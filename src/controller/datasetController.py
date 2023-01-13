@@ -23,9 +23,11 @@ class DatasetController():
             data["timeSeries"][i]["_id"] = str(t["_id"])
         return data
 
-    def getDatasetById(self, dataset_id, project):
+    def getDatasetById(self, dataset_id, project, onlyMeta=False):
         # Read dataset from database
         datasetMeta = self.dbm.getDatasetById(dataset_id, project)
+        if onlyMeta:
+            return datasetMeta
         for t in datasetMeta["timeSeries"]:
             binStore = BinaryStore(t["_id"])
             binStore.loadSeries()
@@ -67,3 +69,14 @@ class DatasetController():
             binStore = BinaryStore(id)
             binStore.delete()
         
+    def getDataSetByIdStartEnd(self, id, projectId, start, end, max_resolution):
+        dataset = self.dbm.getDatasetById(id, project_id=projectId)
+        ts_ids = [x["_id"] for x in dataset["timeSeries"]]
+        res = []
+        for t in ts_ids:
+            binStore = BinaryStore(t)
+            binStore.loadSeries()
+            d = binStore.getPart(start ,end, max_resolution)
+            print(d)
+            res.append(d)
+        return res;

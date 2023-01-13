@@ -42,15 +42,17 @@ async def getDataset(id, project: str = Header()):
     return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 
-@app.get("/{id}/{start}/{end}")
-async def getDatasetPart(id, start, end, project: str = Header()):
-    dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end)
-    return Response(json.dump(dataset, cls=JSONEncoder), media_type="application/json")
+@app.get("/{id}/ts/{start}/{end}/{max_resolution}")
+async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = Header()):
+    print(start, end, max_resolution)
+    dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
+    return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 # Get metadata of dataset
 @app.get("/{id}/meta")
-async def getDatasetMetaData():
-    pass
+async def getDatasetMetaData(id, project : str = Header()):
+    dataset = ctrl.getDatasetById(id, project, onlyMeta=True)
+    return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 # Delete dataset
 @app.delete("/{id}")
