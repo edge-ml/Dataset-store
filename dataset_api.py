@@ -10,6 +10,7 @@ import time
 import orjson
 
 from src.controller.datasetController import DatasetController
+from src.controller.labelController import createLabel
 
 app = FastAPI()
 
@@ -24,26 +25,26 @@ app.add_middleware(
 ctrl = DatasetController()
 
 # Create datset
-@app.post("/")
+@app.post("/dataset/")
 async def createDataset(body: Request, project: str = Header()):
     body = await body.json()
     ctrl.addDataset(dataset=body, project=project)
     return {"message": "success"}
 
 
-@app.get("/project")
+@app.get("/dataset/project")
 async def getDatasetsInProject(project: str = Header()):
     data = ctrl.getDatasetInProject(project)
     return Response(json.dumps(data, cls=JSONEncoder), media_type="application/json")
 
 # Get dataset
-@app.get("/{id}")
+@app.get("/dataset/{id}")
 async def getDataset(id, project: str = Header()):
     dataset = ctrl.getDatasetById(id, project)
     return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 
-@app.get("/{id}/ts/{start}/{end}/{max_resolution}")
+@app.get("/dataset/{id}/ts/{start}/{end}/{max_resolution}")
 async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = Header()):
     t = time.time()
     dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
@@ -58,12 +59,30 @@ async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = He
     return Response(res, media_type="application/json")
 
 # Get metadata of dataset
-@app.get("/{id}/meta")
+@app.get("/dataset/{id}/meta")
 async def getDatasetMetaData(id, project : str = Header()):
     dataset = ctrl.getDatasetById(id, project, onlyMeta=True)
     return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 # Delete dataset
-@app.delete("/{id}")
+@app.delete("/dataset/{id}")
 async def deleteDatasetById(id, project: str = Header()):
     ctrl.deleteDataset(id, projectId=project)
+
+
+
+
+# Labeling-stuff
+
+@app.post("/label/{id}/{labelingId}")
+async def createDatasetLabel(id, labelingId, body: Request, project: str = Header()):
+    body = await body.json()
+    createLabel(id, project, labelingId, body)
+
+@app.delete("/label")
+async def deleteDatasetLabel():
+    pass
+
+@app.post("/label/change/{id}")
+async def changeDatasetLabel():
+    pass

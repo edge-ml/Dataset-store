@@ -26,3 +26,6 @@ class DatasetDBManager:
     def getDatasetsInProjet(self, project_id):
         datasets = self.ds_collection.find({"projectId": ObjectId(project_id)})
         return datasets
+    
+    def updateDataset(self, id, project_id, dataset):
+        self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
