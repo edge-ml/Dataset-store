@@ -2,18 +2,9 @@ from pydantic import BaseModel, Field
 import uuid
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+from app.models.db_models.timeseries import TimeSeriesModel
 
 COLLECTION_NAME = "timeseries"
-
-class TimeSeriesModel(BaseModel):
-    id: str = Field(default_factory=uuid.uuid4, alias="_id")
-    projectId: str = Field(default_factory=uuid.uuid4)
-    datasetId: str = Field(default_factory=uuid.uuid4)
-    name: str = Field(...)
-    unit: str = Field(...)
-    start: int = Field(...)
-    end: int = Field(...)
-    sampingRate: int = Field(...)
 
 class DatabaseManager():
 

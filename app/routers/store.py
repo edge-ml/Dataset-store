@@ -1,56 +1,40 @@
-from fastapi import FastAPI, Request
-from pydantic import BaseModel
+from fastapi import APIRouter
 from typing import List
-from src.controller import Controller
-from src.ApiModels import TimeSeries
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn 
+from app.controller import Controller
+from app.models.api_models.timeseries import TimeSeries
 
-
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+router = APIRouter()
 ctrl = Controller()
 
-@app.post("/")
+@router.post("/")
 async def saveBatch(body: List[TimeSeries]):
     ctrl.addTimeSeriesBatch(body)
 
-@app.post("/batch")
+@router.post("/batch")
 async def getBatch(body: List[str]):
     return ctrl.getTimeSeriesFullBatch(body)
 
-
-@app.delete("/{_id}")
+@router.delete("/{_id}")
 async def delete(_id):
     return ctrl.deleteTimeSeries(_id)
 
-
-
-@app.post("/save/{_id}")
+@router.post("/save/{_id}")
 async def save(_id, body):
     return ctrl.addTimeSeries(body)
 
-@app.get("/tsIds/{datasetId}")
+@router.get("/tsIds/{datasetId}")
 async def getDatasetTSIds(datasetId):
     return ctrl.getDatasetTSIds(datasetId)
 
-@app.get("/{datasetId}")
+@router.get("/{datasetId}")
 async def load(datasetId):
     return ctrl.getTimeSeriesFull(datasetId)
 
-@app.get("/part/{datasetId}")
+@router.get("/part/{datasetId}")
 async def loadPart(datasetId, start: int = 0, end: int = 0):
     return ctrl.getTimeSeriesPart(datasetId)
 
-@app.post("append/{_id}")
+@router.post("append/{_id}")
 async def append(_id, body):
     # ctrl.appendTimeSeries(body)
 

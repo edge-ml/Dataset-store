@@ -1,50 +1,38 @@
-from fastapi import FastAPI, Request, Header, Response
-from pydantic import BaseModel
-from typing import List
-from src.ApiModels import TimeSeries, Dataset
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn 
+from fastapi import APIRouter, Request, Header, Response
+from app.models.api_models.timeseries import TimeSeries
+from app.models.api_models.dataset import Dataset
 import json
-from src.Utils.JsonEncoder import JSONEncoder
+from app.utils.json_encoder import JSONEncoder
 import time
 import orjson
 
-from src.controller.datasetController import DatasetController
-from src.controller.labelController import createLabel
+from app.controller.dataset_controller import DatasetController
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+router = APIRouter()
 
 ctrl = DatasetController()
 
-# Create datset
-@app.post("/dataset/")
+# Create dataset
+@router.post("/")
 async def createDataset(body: Request, project: str = Header()):
     body = await body.json()
     ctrl.addDataset(dataset=body, project=project)
     return {"message": "success"}
 
 
-@app.get("/dataset/project")
+@router.get("/project")
 async def getDatasetsInProject(project: str = Header()):
     data = ctrl.getDatasetInProject(project)
     return Response(json.dumps(data, cls=JSONEncoder), media_type="application/json")
 
 # Get dataset
-@app.get("/dataset/{id}")
+@router.get("/{id}")
 async def getDataset(id, project: str = Header()):
     dataset = ctrl.getDatasetById(id, project)
     return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 
-@app.get("/dataset/{id}/ts/{start}/{end}/{max_resolution}")
+@router.get("/{id}/ts/{start}/{end}/{max_resolution}")
 async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = Header()):
     t = time.time()
     dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
@@ -59,30 +47,12 @@ async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = He
     return Response(res, media_type="application/json")
 
 # Get metadata of dataset
-@app.get("/dataset/{id}/meta")
+@router.get("/{id}/meta")
 async def getDatasetMetaData(id, project : str = Header()):
     dataset = ctrl.getDatasetById(id, project, onlyMeta=True)
     return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 # Delete dataset
-@app.delete("/dataset/{id}")
+@router.delete("/{id}")
 async def deleteDatasetById(id, project: str = Header()):
     ctrl.deleteDataset(id, projectId=project)
-
-
-
-
-# Labeling-stuff
-
-@app.post("/label/{id}/{labelingId}")
-async def createDatasetLabel(id, labelingId, body: Request, project: str = Header()):
-    body = await body.json()
-    createLabel(id, project, labelingId, body)
-
-@app.delete("/label")
-async def deleteDatasetLabel():
-    pass
-
-@app.post("/label/change/{id}")
-async def changeDatasetLabel():
-    pass

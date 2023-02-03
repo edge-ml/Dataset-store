@@ -1,4 +1,4 @@
-from src.db.dataset import DatasetDBManager
+from app.db.dataset import DatasetDBManager
 
 dbm = DatasetDBManager()
 

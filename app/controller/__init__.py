@@ -1,5 +1,5 @@
-from .binaryStore import BinaryStore
-from .dbManager import DatabaseManager
+from .binary_store import BinaryStore
+from app.db.db_manager import DatabaseManager
 
 
 class Controller():
