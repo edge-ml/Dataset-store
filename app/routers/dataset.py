@@ -34,15 +34,8 @@ async def getDataset(id, project: str = Header()):
 
 @router.get("/{id}/ts/{start}/{end}/{max_resolution}")
 async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = Header()):
-    t = time.time()
     dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
-    t_end = time.time()
-    print("generate: ", t_end - t)
-    t = time.time()
-    # res = json.dumps(dataset, cls=JSONEncoder)
     res = orjson.dumps(dataset, option = orjson.OPT_SERIALIZE_NUMPY)
-    t_end = time.time()
-    print("Json: ", t_end - t)
 
     return Response(res, media_type="application/json")
 

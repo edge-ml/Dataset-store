@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Request, Header, Response
-from app.controller.label_controller import createLabel
+from app.controller.label_controller import createLabel, updateLabel, deleteLabel
+import json
+from app.utils.json_encoder import JSONEncoder
+
 
 router = APIRouter()
 
@@ -8,12 +11,14 @@ router = APIRouter()
 @router.post("/{id}/{labelingId}")
 async def createDatasetLabel(id, labelingId, body: Request, project: str = Header()):
     body = await body.json()
-    createLabel(id, project, labelingId, body)
+    createdLabel = createLabel(id, project, labelingId, body)
+    return Response(json.dumps(createdLabel, cls=JSONEncoder), media_type="application/json")
 
-@router.delete("/")
-async def deleteDatasetLabel():
-    pass
+@router.put("/{dataset_id}/{labeling_id}/{label_id}")
+async def changeDatasetLabel(dataset_id, labeling_id, label_id, body: Request, project: str = Header()):
+    body = await body.json()
+    updateLabel(project, dataset_id, labeling_id, label_id, body)
 
-@router.post("/change/{id}")
-async def changeDatasetLabel():
-    pass
+@router.delete("/{dataset_id}/{labeling_id}/{label_id}")
+async def deleteDatasetLabel(dataset_id, labeling_id, label_id, project: str = Header()):
+    deleteLabel(project, dataset_id, labeling_id, label_id)

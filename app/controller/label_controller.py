@@ -1,4 +1,5 @@
 from app.db.dataset import DatasetDBManager
+from bson.objectid import ObjectId
 
 dbm = DatasetDBManager()
 
@@ -8,8 +9,27 @@ def createLabel(dataset_id, project_id, labelingId, label):
     if not containsLabeling:
         dataset["labelings"].append({"labels": [], "labelingId": labelingId})
     for l in dataset["labelings"]:
-        print(l)
         if l["labelingId"] == labelingId:
+            if not "_id" in label:
+                label["_id"] = ObjectId()
             l["labels"].append(label)
-    print(dataset)
+    dbm.updateDataset(dataset_id, project_id, dataset)
+    return label
+
+def updateLabel(project_id, dataset_id, labeling_id, label_id, updatedLabel):
+    dataset = dbm.getDatasetById(dataset_id, project_id)
+    for i, labeling in enumerate(dataset["labelings"]):
+        if str(labeling["labelingId"]) == str(labeling_id):
+            for j, label in enumerate(labeling["labels"]):
+                if str(label["_id"]) == str(label_id):
+                    dataset["labelings"][i]["labels"][j] = updatedLabel
+    dbm.updateDataset(dataset_id, project_id, dataset)
+
+def deleteLabel(project_id, dataset_id, labeling_id, label_id):
+    dataset = dbm.getDatasetById(dataset_id, project_id)
+    for i, labeling in enumerate(dataset["labelings"]):
+        if str(labeling["labelingId"]) == str(labeling_id):
+            for j, label in enumerate(labeling["labels"]):
+                if str(label["_id"]) == str(label_id):
+                    del dataset["labelings"][i]["labels"][j]
     dbm.updateDataset(dataset_id, project_id, dataset)

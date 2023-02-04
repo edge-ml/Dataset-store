@@ -5,7 +5,6 @@ import struct
 import numpy as np
 from scipy.signal import resample
 import lttbc
-import time
 
 
 DATA_PREFIX = "DATA"
@@ -29,7 +28,6 @@ class BinaryStore():
                 self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)))
             cache[self._id] = self
         else:
-            print("Using cache")
             self.time_arr = cache[self._id].time_arr
             self.data_arr = cache[self._id].data_arr
 
@@ -45,28 +43,13 @@ class BinaryStore():
 
         start_index = 0
         end_index = len(self.time_arr) -1
-
-        t_start = time.time()
         if start_time != "undefined" and end_time != "undefined":
             end_time = int(end_time)
             start_time = int(start_time)
-            print("search")
-            print(self.time_arr[:15])
             [start_index, end_index] = np.searchsorted(self.time_arr, [start_time, end_time])
-            print(start_time, ": ", start_index)
-            print(end_time, ": ", end_index)
-        # if (start_time != "undefined"):
-        #     start_index = np.searchsorted(self.time_arr, start_time)
-
-        # if (end_time != "undefined"):
-        #     end_index = np.searchsorted(self.time_arr, end_time)
-        t_end = time.time()
-        print("Search: ", t_end - t_start)
         time_res = self.time_arr[start_index:end_index]
         data_res = self.data_arr[start_index:end_index]
-        print("LEN: ", len(time_res), ";;;;", start_index, end_index, "<==>", start_time, end_time)
         if max_resolution is not None and len(time_res) > max_resolution:
-            print("Downsample")
             [time_res, data_res] = lttbc.downsample(time_res, data_res, max_resolution)
         res = np.asarray([time_res, data_res]).T
         res = np.ascontiguousarray(res)
