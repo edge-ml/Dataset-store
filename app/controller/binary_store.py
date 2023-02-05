@@ -15,7 +15,7 @@ class BinaryStore():
 
     def __init__(self, _id) -> None:
         self._id = str(_id)
-        self.time_arr = np.array([], dtype=np.uint32)
+        self.time_arr = np.array([], dtype=np.uint64)
         self.data_arr = np.array([], dtype=np.float32)
 
         self._path = join(DATA_PREFIX, self._id + ".bin")
@@ -24,7 +24,7 @@ class BinaryStore():
         if self._id not  in cache:
             with open(self._path, "rb") as f:
                 len = struct.unpack("I", f.read(4))[0]
-                self.time_arr = np.asarray(struct.unpack("I" * len, f.read(len * 4)))
+                self.time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)))
                 self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)))
             cache[self._id] = self
         else:
@@ -35,7 +35,7 @@ class BinaryStore():
     def saveSeries(self):
         with open(join(DATA_PREFIX, self._id + ".bin"), "wb") as f:
             f.write(struct.pack("I", len(self.time_arr)))
-            f.write(struct.pack("I" * len(self.time_arr), *self.time_arr))
+            f.write(struct.pack("Q" * len(self.time_arr), *self.time_arr))
             f.write(struct.pack("f" * len(self.data_arr), *self.data_arr))
 
     def getPart(self, start_time, end_time, max_resolution=None):
@@ -65,7 +65,7 @@ class BinaryStore():
         time, data = list(zip(*tsValues))
         time, data = list(time), list(data)
 
-        time = np.array(time, dtype=np.uint32)
+        time = np.array(time, dtype=np.uint64)
         data = np.array(data, dtype=np.float32)
         self.time_arr = np.append(self.time_arr, time)
         self.data_arr = np.append(self.data_arr, data)
