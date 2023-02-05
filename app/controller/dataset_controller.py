@@ -84,6 +84,6 @@ class DatasetController():
         for t in ts_ids:
             binStore = BinaryStore(t)
             binStore.loadSeries()
-            d = binStore.getPart(start ,end, max_resolution)
+            d = binStore.getPart(start, end, max_resolution)
             res.append(d)
         return res

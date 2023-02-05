@@ -6,7 +6,7 @@ from app.models.db_models.timeseries import TimeSeriesModel
 
 COLLECTION_NAME = "timeseries"
 
-class DatabaseManager():
+class TimeseriesDBManager():
 
     def __init__(self) -> None:
         self.mongo_client = MongoClient("mongodb://127.0.0.1:27017")

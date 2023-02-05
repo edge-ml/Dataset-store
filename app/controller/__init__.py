@@ -1,11 +1,11 @@
 from .binary_store import BinaryStore
-from app.db.db_manager import DatabaseManager
+from app.db.timeseries import TimeseriesDBManager
 
 
 class Controller():
     
     def __init__(self) -> None:
-        self.dbManager = DatabaseManager()
+        self.dbManager = TimeseriesDBManager()
 
     def _splitMeta_Data(self, timeSeries):
         tsValues = timeSeries["data"]
