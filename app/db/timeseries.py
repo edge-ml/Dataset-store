@@ -1,17 +1,13 @@
-from pydantic import BaseModel, Field
-import uuid
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from app.models.db_models.timeseries import TimeSeriesModel
-
-COLLECTION_NAME = "timeseries"
+from app.internal.config import MONGO_URI, TIMESERIES_DBNAME, TIMESERIES_COLLNAME
 
 class TimeseriesDBManager():
 
     def __init__(self) -> None:
-        self.mongo_client = MongoClient("mongodb://127.0.0.1:27017")
-        self.ts_db = self.mongo_client["ts_db"]
-        self.ts_collection = self.ts_db["timeSeries"]
+        self.mongo_client = MongoClient(MONGO_URI)
+        self.ts_db = self.mongo_client[TIMESERIES_DBNAME]
+        self.ts_collection = self.ts_db[TIMESERIES_COLLNAME]
 
     def addTimeSeries(self, ts):
         ts["_id"] = ObjectId(ts["_id"])

@@ -1,14 +1,13 @@
-from pydantic import BaseModel, Field
-import uuid
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
 
 class DatasetDBManager:
 
     def __init__(self) -> None:
-        self.mongo_client = MongoClient("mongodb://127.0.0.1:27017")
-        self.ds = self.mongo_client["dataset_store"]
-        self.ds_collection = self.ds["datasets"]
+        self.mongo_client = MongoClient(MONGO_URI)
+        self.ds = self.mongo_client[DATASTORE_DBNAME]
+        self.ds_collection = self.ds[DATASTORE_COLLNAME]
 
     def addDataset(self, dataset):
         return self.ds_collection.insert_one(dataset)

@@ -1,6 +1,6 @@
 import uvicorn
-import os
 
+from app.internal.config import ENV
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -34,6 +34,6 @@ async def shutdown():
 
 if __name__ == "__main__":
     reload = True
-    if os.getenv("ENV") == "production":
+    if ENV == "production":
         reload = False
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=reload)

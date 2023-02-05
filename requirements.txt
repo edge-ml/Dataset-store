@@ -6,3 +6,4 @@ pymongo
 uvicorn
 uuid
 orjson
+pyjwt
