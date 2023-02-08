@@ -1,16 +1,69 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
+from pydantic import BaseModel, ValidationError, validator, Field
+from typing import Dict, List
+
+class PyObjectId(ObjectId):
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not ObjectId.is_valid(v):
+            raise ValueError('Invalid objectid')
+        return ObjectId(v)
+
+    @classmethod
+    def __modify_schema__(cls, field_schema):
+        field_schema.update(type='string')
+
+
+class TimeSeries(BaseModel):
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    start: int
+    end: int
+    unit: str = Field(default="")
+    name: str
+
+
+
+class DatasetLabels(BaseModel):
+    start: int
+    end: int
+    type: str
+    id: str = Field(default_factory=ObjectId, alias="_id")
+
+class DatasetLabeling(BaseModel):
+    labelingId: str
+    labels: List[DatasetLabels]
+
+class DatasetSchema(BaseModel):
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    projectId: PyObjectId = Field(default_factory=ObjectId)
+    name: str
+    start: int
+    end: int
+    metaData: Dict[str, str] = Field(default={})
+    timeSeries: List[TimeSeries]
+    labelings: List[DatasetLabeling] = Field(default=[])
+
+
+
 
 class DatasetDBManager:
 
     def __init__(self) -> None:
         self.mongo_client = MongoClient(MONGO_URI)
-        self.ds = self.mongo_client[DATASTORE_DBNAME]
-        self.ds_collection = self.ds[DATASTORE_COLLNAME]
+        self.db = self.mongo_client[DATASTORE_DBNAME]
+        self.ds_collection = self.db[DATASTORE_COLLNAME]
 
     def addDataset(self, dataset):
-        return self.ds_collection.insert_one(dataset)
+        dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
+        self.ds_collection.insert_one(dataset)
+        return dataset
 
     def deleteDatasetById(self, dataset_id, projectID):
         query = {"_id": ObjectId(dataset_id), "projectId": ObjectId(projectID)}
@@ -27,6 +80,7 @@ class DatasetDBManager:
         return datasets
     
     def updateDataset(self, id, project_id, dataset):
+        print(dataset)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
 
     

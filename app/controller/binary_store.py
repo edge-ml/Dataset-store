@@ -18,14 +18,18 @@ class BinaryStore():
         self.time_arr = np.array([], dtype=np.uint64)
         self.data_arr = np.array([], dtype=np.float32)
 
+        if not os.path.exists(DATA_PREFIX):
+            os.makedirs(DATA_PREFIX)
+
         self._path = join(DATA_PREFIX, self._id + ".bin")
+
 
     def loadSeries(self):
         if self._id not  in cache:
             with open(self._path, "rb") as f:
                 len = struct.unpack("I", f.read(4))[0]
-                self.time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)))
-                self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)))
+                self.time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
+                self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
             cache[self._id] = self
         else:
             self.time_arr = cache[self._id].time_arr
@@ -47,6 +51,8 @@ class BinaryStore():
             end_time = int(end_time)
             start_time = int(start_time)
             [start_index, end_index] = np.searchsorted(self.time_arr, [start_time, end_time])
+            start_time = min(0, start_time - 100)
+            end_time = max(0, end_time + 100)
         time_res = self.time_arr[start_index:end_index]
         data_res = self.data_arr[start_index:end_index]
         if max_resolution is not None and len(time_res) > max_resolution:
@@ -61,20 +67,24 @@ class BinaryStore():
         return {"time": self.time_arr, "data": self.data_arr}
 
     def append(self, tsValues):
-
-        time, data = list(zip(*tsValues))
-        time, data = list(time), list(data)
+        
+        if len(tsValues) == 0:
+            time, data = np.array([], dtype=np.uint64), np.array([], dtype=np.float32)
+        else:
+            time, data = list(zip(*tsValues))
+            time, data = list(time), list(data)
 
         time = np.array(time, dtype=np.uint64)
         data = np.array(data, dtype=np.float32)
         self.time_arr = np.append(self.time_arr, time)
         self.data_arr = np.append(self.data_arr, data)
-
         inds = self.time_arr.argsort()
         self.time_arr = self.time_arr[inds]
         self.data_arr = self.data_arr[inds]
         self.saveSeries()
-        return self.time_arr[0], self.time_arr[-1] # Return start and end
+        if len(self.time_arr) == 0:
+            return None, None
+        return int(self.time_arr[0]), int(self.time_arr[-1]) # Return start and end
 
 
     def delete(self):

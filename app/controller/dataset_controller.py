@@ -4,6 +4,8 @@ from typing import Union
 from bson import ObjectId
 import time
 import os
+from fastapi import HTTPException, status
+from app.utils.helpers import custom_index
 
 
 
@@ -46,17 +48,11 @@ class DatasetController():
     def addDataset(self, dataset, project):
         datasetMeta = dataset
         datasetMeta["projectId"] = ObjectId(project)
-        if "metaData" not in datasetMeta:
-            datasetMeta["metaData"] = {}
-
-        for i, t in enumerate(datasetMeta["timeSeries"]):
-            metaData, tsValues = self._splitMeta_Data(t)
-            objectId = ObjectId()
-            binStore = BinaryStore(objectId)
-            binStore.append(tsValues)
-            datasetMeta["timeSeries"][i]["_id"] = ObjectId(objectId)
-
         newDatasetMeta = self.dbm.addDataset(datasetMeta)
+        for t, newt in zip(datasetMeta["timeSeries"], newDatasetMeta["timeSeries"]):
+            metaData, tsValues = self._splitMeta_Data(t)
+            binStore = BinaryStore(newt["_id"])
+            binStore.append(tsValues)
 
     def _convertTimeSeriesObjectIdToStr(self, ts_array):
         res = []
@@ -77,13 +73,41 @@ class DatasetController():
         
     def getDataSetByIdStartEnd(self, id, projectId, start, end, max_resolution):
         dataset = self.dbm.getDatasetById(id, project_id=projectId)
-
         ts_ids = [x["_id"] for x in dataset["timeSeries"]]
         res = []
-        t_start = time.time()
         for t in ts_ids:
             binStore = BinaryStore(t)
             binStore.loadSeries()
             d = binStore.getPart(start, end, max_resolution)
             res.append(d)
         return res
+
+    def append(self, id, project, body, projectId):
+        dataset = self.dbm.getDatasetById(id, project)
+        datasetIds = [x["_id"] for x in dataset["timeSeries"]]
+        sendIds = [ObjectId(x["id"]) for x in body]
+        if set(datasetIds) != set(sendIds):
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+
+
+        newStart = dataset["start"]
+        newEnd = dataset["end"]
+        for ts in body:
+            binStore = BinaryStore(ts["id"])
+            binStore.loadSeries()
+            tmpStart, tmpEnd = binStore.append(ts["data"])
+            newStart = min(newStart, tmpStart)
+            newEnd = max(newEnd, tmpEnd)
+            binStore.saveSeries()
+
+            idx = custom_index(dataset["timeSeries"], lambda x: ObjectId(x["_id"]) == ObjectId(ts["id"]))
+            oldStart = int(dataset["timeSeries"][idx]["start"])
+            oldEnd = int(dataset["timeSeries"][idx]["end"])
+            dataset["timeSeries"][idx]["start"] = min(oldStart, tmpStart) if oldStart is not None else tmpStart
+            dataset["timeSeries"][idx]["end"] = max(oldEnd, tmpEnd) if oldEnd is not None else tmpEnd
+
+        dataset["start"] = int(newStart)
+        dataset["end"] = int(newEnd)
+        self.dbm.updateDataset(id, project, dataset=dataset)
+        return 
+    

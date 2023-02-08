@@ -52,3 +52,8 @@ async def getDatasetMetaData(id, project : str = Header(), user_data=Depends(val
 @router.delete("/{id}")
 async def deleteDatasetById(id, project: str = Header(), user_data=Depends(validate_user)):
     ctrl.deleteDataset(id, projectId=project)
+
+@router.post("/{id}/append")
+async def appendToDataset(id, body: Request, project: str = Header(), user_data=Depends(validate_user)):
+    body = await body.json()
+    ctrl.append(id, project, body, projectId=project)

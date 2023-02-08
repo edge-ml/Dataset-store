@@ -10,5 +10,4 @@ class ProjectDBManager():
 
     def get_project(self, project_id: ObjectId):
         project = self.project_collection.find_one({"_id": ObjectId(project_id)})
-        # print(project)
         return project
