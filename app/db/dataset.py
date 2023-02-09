@@ -3,23 +3,7 @@ from bson.objectid import ObjectId
 from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
 from pydantic import BaseModel, ValidationError, validator, Field
 from typing import Dict, List
-
-class PyObjectId(ObjectId):
-
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError('Invalid objectid')
-        return ObjectId(v)
-
-    @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type='string')
-
+from app.utils.helpers import PyObjectId
 
 class TimeSeries(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
@@ -29,15 +13,14 @@ class TimeSeries(BaseModel):
     name: str
 
 
-
 class DatasetLabels(BaseModel):
     start: int
     end: int
-    type: str
+    type: PyObjectId = Field(default_factory=ObjectId)
     id: str = Field(default_factory=ObjectId, alias="_id")
 
 class DatasetLabeling(BaseModel):
-    labelingId: str
+    labelingId: PyObjectId = Field(default_factory=ObjectId)
     labels: List[DatasetLabels]
 
 class DatasetSchema(BaseModel):
@@ -49,8 +32,7 @@ class DatasetSchema(BaseModel):
     metaData: Dict[str, str] = Field(default={})
     timeSeries: List[TimeSeries]
     labelings: List[DatasetLabeling] = Field(default=[])
-
-
+    userId: PyObjectId
 
 
 class DatasetDBManager:
@@ -65,7 +47,7 @@ class DatasetDBManager:
         self.ds_collection.insert_one(dataset)
         return dataset
 
-    def deleteDatasetById(self, dataset_id, projectID):
+    def deleteDatasetById(self, projectID, dataset_id):
         query = {"_id": ObjectId(dataset_id), "projectId": ObjectId(projectID)}
         data = self.ds_collection.find_one(query)
         self.ds_collection.delete_one(query)
@@ -80,7 +62,6 @@ class DatasetDBManager:
         return datasets
     
     def updateDataset(self, id, project_id, dataset):
-        print(dataset)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
 
     

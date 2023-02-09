@@ -1,8 +1,5 @@
 from fastapi import APIRouter, Request, Header, Response
 from fastapi.param_functions import Depends
-
-from app.models.api_models.timeseries import TimeSeries
-from app.models.api_models.dataset import Dataset
 from app.utils.json_encoder import JSONEncoder
 from app.routers.dependencies import validate_user
 
@@ -11,15 +8,20 @@ import orjson
 
 from app.controller.dataset_controller import DatasetController
 
+from app.routers.schema import DatasetSchema
+
 router = APIRouter()
 
 ctrl = DatasetController()
+
 
 # Create dataset
 @router.post("/")
 async def createDataset(body: Request, project: str = Header(), user_data=Depends(validate_user)):
     body = await body.json()
-    ctrl.addDataset(dataset=body, project=project)
+    # body = body.dict(by_alias=True)
+    (user_id, _, _) = user_data
+    ctrl.addDataset(dataset=body, project=project, user_id=user_id)
     return {"message": "success"}
 
 

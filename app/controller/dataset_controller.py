@@ -6,7 +6,11 @@ import time
 import os
 from fastapi import HTTPException, status
 from app.utils.helpers import custom_index
-
+from app.db.deviceAPi import DeviceApiManager
+import requests
+import random
+from app.internal.config import BACKEND_URI
+from app.controller.labelingController import createLabeling
 
 
 class DatasetController():
@@ -17,6 +21,7 @@ class DatasetController():
             os.mkdir("DATA")
 
         self.dbm = DatasetDBManager()
+        self.deviceAPI = DeviceApiManager()
 
     def _splitMeta_Data(self, timeSeries):
         tsValues = timeSeries["data"]
@@ -45,14 +50,22 @@ class DatasetController():
 
 
 
-    def addDataset(self, dataset, project):
+    def addDataset(self, dataset, project, user_id=None):
         datasetMeta = dataset
         datasetMeta["projectId"] = ObjectId(project)
+        if user_id is not None:
+            datasetMeta["userId"] = ObjectId(user_id)
         newDatasetMeta = self.dbm.addDataset(datasetMeta)
-        for t, newt in zip(datasetMeta["timeSeries"], newDatasetMeta["timeSeries"]):
-            metaData, tsValues = self._splitMeta_Data(t)
-            binStore = BinaryStore(newt["_id"])
-            binStore.append(tsValues)
+        try:
+            for t, newt in zip(datasetMeta["timeSeries"], newDatasetMeta["timeSeries"]):
+                metaData, tsValues = self._splitMeta_Data(t)
+                binStore = BinaryStore(newt["_id"])
+                binStore.append(tsValues)
+        except:
+            print("Handle here", newDatasetMeta["_id"])
+            self.dbm.deleteDatasetById(project, newDatasetMeta["_id"])
+            raise TypeError()
+        return newDatasetMeta
 
     def _convertTimeSeriesObjectIdToStr(self, ts_array):
         res = []
@@ -66,7 +79,7 @@ class DatasetController():
         return list(datasets)
 
     def deleteDataset(self, id, projectId):
-        ts_ids = self.dbm.deleteDatasetById(id, projectId)
+        ts_ids = self.dbm.deleteDatasetById(projectId, id)
         for id in ts_ids:
             binStore = BinaryStore(id)
             binStore.delete()
@@ -110,4 +123,31 @@ class DatasetController():
         dataset["end"] = int(newEnd)
         self.dbm.updateDataset(id, project, dataset=dataset)
         return 
-    
+
+
+    def externalUpload(self, api_key, user_id, body):
+        # Get labels from dataset
+        dataset = body["dataset"]
+        datasetLabels = body["labeling"]["labels"]
+        labelingName = body["labeling"]["name"]
+        uniquelabels = list(set([x["name"] for x in datasetLabels]))
+
+        # Check if api_key has access rights
+        deviceApi = self.deviceAPI.get(api_key)
+        project_id = deviceApi["projectId"]
+        dataset["userId"] = deviceApi["userId"]
+
+        color_dict = {x: "#%06x" % random.randint(0, 0xFFFFFF) for x in uniquelabels}
+
+        for l in datasetLabels:
+            l["color"] = color_dict[l["name"]]
+        print(datasetLabels)
+        labeling = createLabeling(project_id, {"name": labelingName, "labels": datasetLabels})
+        print(labeling)
+        typeDict = {x["name"]: x["_id"] for x in labeling["labels"]}
+        for l in datasetLabels:
+            l["type"] = typeDict[l["name"]]
+        dataset["labelings"] = [{"labelingId": labeling["_id"], "labels": datasetLabels}]
+        print(dataset)
+        metadataset = self.addDataset(dataset=dataset, project=project_id, user_id=user_id)
+        return metadataset["_id"]
