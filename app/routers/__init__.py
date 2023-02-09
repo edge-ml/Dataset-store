@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.routers import dataset, label, store
+from app.routers import dataset, deviceApi, label, labelings
 
 router = APIRouter()
 router.include_router(
@@ -13,5 +13,11 @@ router.include_router(
 )
 
 router.include_router(
-    store.router,
+    deviceApi.router,
+    prefix="/api"
+)
+
+router.include_router(
+    labelings.router,
+    prefix="/labelings"
 )
