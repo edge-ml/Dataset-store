@@ -9,7 +9,7 @@ import lttbc
 
 DATA_PREFIX = "DATA"
 
-cache = {}
+# cache = {}
 
 class BinaryStore():
 
@@ -25,15 +25,15 @@ class BinaryStore():
 
 
     def loadSeries(self):
-        if self._id not  in cache:
-            with open(self._path, "rb") as f:
-                len = struct.unpack("I", f.read(4))[0]
-                self.time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
-                self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
-            cache[self._id] = self
-        else:
-            self.time_arr = cache[self._id].time_arr
-            self.data_arr = cache[self._id].data_arr
+        #if self._id not  in cache:
+        with open(self._path, "rb") as f:
+            len = struct.unpack("I", f.read(4))[0]
+            self.time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
+            self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
+        #     cache[self._id] = self
+        # else:
+        #     self.time_arr = cache[self._id].time_arr
+        #     self.data_arr = cache[self._id].data_arr
 
 
     def saveSeries(self):

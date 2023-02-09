@@ -127,7 +127,7 @@ class DatasetController():
 
     def externalUpload(self, api_key, user_id, body):
         # Get labels from dataset
-        dataset = body["dataset"]
+        dataset = body
         datasetLabels = body["labeling"]["labels"]
         labelingName = body["labeling"]["name"]
         uniquelabels = list(set([x["name"] for x in datasetLabels]))
