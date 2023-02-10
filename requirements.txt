@@ -8,3 +8,5 @@ uuid
 orjson
 pyjwt
 requests
+pika
+aio-pika
