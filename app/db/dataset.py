@@ -64,7 +64,10 @@ class DatasetDBManager:
     def updateDataset(self, id, project_id, dataset):
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
 
-    
+    def deleteProject(self, project):
+        self.ds_collection.delete_many({"_id": ObjectId(project)})
+
+
     # For modifying dataset-labels
 
     def updateDatasetLabel(self, project_id, dataset_id, labeling_id, label_Id, newLabel):

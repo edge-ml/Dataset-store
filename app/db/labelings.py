@@ -61,3 +61,6 @@ class LabelingDBManager:
     
     def delete(self, project, id):
         self.col.delete_one({"projectId": ObjectId(project), "_id": ObjectId(id)})
+
+    def deleteProject(self, project):
+        self.col.delete_many({"project_id": ObjectId(project)})

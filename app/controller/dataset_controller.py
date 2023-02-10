@@ -22,7 +22,6 @@ class DatasetController():
 
         self.dbm = DatasetDBManager()
         self.deviceAPI = DeviceApiManager()
-
     def _splitMeta_Data(self, timeSeries):
         tsValues = timeSeries["data"]
         metaData = timeSeries
@@ -151,3 +150,14 @@ class DatasetController():
         print(dataset)
         metadataset = self.addDataset(dataset=dataset, project=project_id, user_id=user_id)
         return metadataset["_id"]
+
+    def deleteProjectDatasets(self, project):
+        datasets = self.dbm.getDatasetsInProjet(project)
+
+        for dataset in datasets:
+            timeSeriesIDs = [x["_id"] for x in dataset["timeSeries"]]
+
+            for d in timeSeriesIDs:
+                binStore = BinaryStore(d)
+                binStore.delete()
+        self.dbm.deleteProject(project)

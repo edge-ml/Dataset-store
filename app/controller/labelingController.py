@@ -16,3 +16,6 @@ def updateLabeling(project, id, labeling):
 
 def deleteLabeling(project, id):
     return dbm.delete(project, id)
+
+def deleteProjectLabeling(project):
+    return dbm.deleteProject(project)
