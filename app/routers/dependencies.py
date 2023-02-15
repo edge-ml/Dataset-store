@@ -36,4 +36,4 @@ async def validateApiKey(api_key):
     res = deviceApi_dbm.get(api_key)
     if res is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
-    return res["userId"]
+    return {"projectId": res["projectId"], "userId": res["userId"]}

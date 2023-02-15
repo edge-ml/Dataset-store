@@ -13,15 +13,16 @@ class TimeSeries(BaseModel):
     name: str
 
 
-class DatasetLabels(BaseModel):
+class DatasetLabel(BaseModel):
     start: int
     end: int
     type: PyObjectId = Field(default_factory=ObjectId)
-    id: str = Field(default_factory=ObjectId, alias="_id")
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    metaData: Dict[str, str] = Field(default={})
 
 class DatasetLabeling(BaseModel):
     labelingId: PyObjectId = Field(default_factory=ObjectId)
-    labels: List[DatasetLabels]
+    labels: List[DatasetLabel]
 
 class DatasetSchema(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
@@ -62,6 +63,8 @@ class DatasetDBManager:
         return datasets
     
     def updateDataset(self, id, project_id, dataset):
+        print(dataset)
+        dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
 
     def deleteProject(self, project):
@@ -71,6 +74,9 @@ class DatasetDBManager:
     # For modifying dataset-labels
 
     def updateDatasetLabel(self, project_id, dataset_id, labeling_id, label_Id, newLabel):
+        print("Create new label")
+        newLabel = DatasetLabel(newLabel)
+        print(newLabel)
         query = {"labelings": {"exist": True}, "_id": ObjectId(dataset_id), "projectId": ObjectId(project_id), "labeling.labelingId": labeling_id}
         update = {"$set": {"labelings.$[].labels.$[label]": newLabel}}
         array_filters = [{"label._id": label_Id}]

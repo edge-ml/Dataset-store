@@ -9,7 +9,7 @@ import lttbc
 
 DATA_PREFIX = "DATA"
 
-# cache = {}
+cache = {}
 
 class BinaryStore():
 
@@ -25,15 +25,15 @@ class BinaryStore():
 
 
     def loadSeries(self):
-        #if self._id not  in cache:
-        with open(self._path, "rb") as f:
-            len = struct.unpack("I", f.read(4))[0]
-            self.time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
-            self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
-        #     cache[self._id] = self
-        # else:
-        #     self.time_arr = cache[self._id].time_arr
-        #     self.data_arr = cache[self._id].data_arr
+        if self._id not  in cache:
+            with open(self._path, "rb") as f:
+                len = struct.unpack("I", f.read(4))[0]
+                self.time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
+                self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
+                cache[self._id] = self
+        else:
+            self.time_arr = cache[self._id].time_arr
+            self.data_arr = cache[self._id].data_arr
 
 
     def saveSeries(self):
@@ -45,6 +45,12 @@ class BinaryStore():
     def getPart(self, start_time, end_time, max_resolution=None):
         max_resolution = int(float(max_resolution))
 
+        if len(self.time_arr) < 200:
+            res = np.asarray([self.time_arr, self.data_arr]).T
+            res = np.ascontiguousarray(res)
+            return res
+
+
         start_index = 0
         end_index = len(self.time_arr) -1
         if start_time != "undefined" and end_time != "undefined":
@@ -55,6 +61,7 @@ class BinaryStore():
             end_time = max(0, end_time + 100)
         time_res = self.time_arr[start_index:end_index]
         data_res = self.data_arr[start_index:end_index]
+
         if max_resolution is not None and len(time_res) > max_resolution:
             [time_res, data_res] = lttbc.downsample(time_res, data_res, max_resolution)
         res = np.asarray([time_res, data_res]).T
@@ -73,7 +80,9 @@ class BinaryStore():
         else:
             time, data = list(zip(*tsValues))
             time, data = list(time), list(data)
+        return self._appendValues(time, data)
 
+    def _appendValues(self, time, data):
         time = np.array(time, dtype=np.uint64)
         data = np.array(data, dtype=np.float32)
         self.time_arr = np.append(self.time_arr, time)

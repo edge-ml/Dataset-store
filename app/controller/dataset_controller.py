@@ -1,7 +1,7 @@
 from app.db.dataset import DatasetDBManager
 from .binary_store import BinaryStore
 from typing import Union
-from bson import ObjectId
+from bson.objectid import ObjectId
 import time
 import os
 from fastapi import HTTPException, status
@@ -11,7 +11,9 @@ import requests
 import random
 from app.internal.config import BACKEND_URI
 from app.controller.labelingController import createLabeling
-
+from fastapi import UploadFile
+from app.utils.CsvParser import CsvParser
+import traceback
 
 class DatasetController():
 
@@ -101,7 +103,7 @@ class DatasetController():
         if set(datasetIds) != set(sendIds):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
 
-
+ 
         newStart = dataset["start"]
         newEnd = dataset["end"]
         for ts in body:
@@ -161,3 +163,85 @@ class DatasetController():
                 binStore = BinaryStore(d)
                 binStore.delete()
         self.dbm.deleteProject(project)
+
+    async def processFiles(self, files: UploadFile):
+        print("Processing files")
+        for file in files:
+            try:
+                print("Name: ", file.filename)
+                content = await file.read(1024)
+                print(content)
+                break
+            except Exception as e:
+                print(e)
+
+    # Upload whole datasets
+    def uploadDatasetDevice(self, file_info, byte_arr, projectId, userId):
+        try:
+
+
+            dataset_name = file_info["name"]
+            labeling = file_info["labeling"]
+            file_info = file_info["files"]
+
+            labeling_name = labeling["name"]
+            labeling_labels = labeling["labels"]
+            unique_labels_names = [x["name"] for x in labeling_labels]
+
+            
+            print(unique_labels_names)
+            unique_labels = [{"name": x, "color": f'#{"%06x" % random.randint(0, 0xFFFFFF)}'} for x in unique_labels_names]
+
+
+            labeling = createLabeling(projectId, {"name": labeling_name, "labels": unique_labels})
+            labeling_id = labeling["_id"]
+            print(labeling)
+
+            label_type_map = {x["name"]: x["_id"] for x in labeling["labels"]}
+
+            print(label_type_map)
+
+            for x in labeling_labels:
+                x["type"] = label_type_map[str(x["name"])]
+            
+
+
+
+            start_idx = 0
+            tsIds = []
+            starts = []
+            ends = []
+            headers = []
+            file_names = []
+            for i, info in enumerate(file_info):
+                bin = byte_arr[start_idx:start_idx+info["size"]]
+                file_info[i]["ids"] = []
+                start_idx += info["size"]
+                file = CsvParser(bin)
+                time, data, header = file.to_edge_ml_format()
+                if time is None:
+                    continue
+                for d, h in zip(data, header):
+                    if h in info["drop"]:
+                        continue
+                    print("processing ts")
+                    tsId = ObjectId()
+                    tsIds.append(tsId)
+                    print("Adding ts with id: ", tsId)
+                    binStore = BinaryStore(tsId, time_col=)
+                    start, end = binStore._appendValues(time, d)
+                    starts.append(start)
+                    ends.append(end)
+                    headers.append(h)
+                    file_names.append(info["name"])
+
+            timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h} for s, e, tid, fName, h in zip(starts, ends, tsIds, file_names, headers)]
+        
+            dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries, 
+            "labelings": [{"name": labeling_name, "labelingId": labeling_id, "labels": labeling_labels}]}
+            newDatasetMeta = self.dbm.addDataset(dataset)
+            print("Added dataset: ", newDatasetMeta)
+        except Exception as e:
+            print("Error", e)
+            traceback.print_exc()
+

@@ -8,6 +8,7 @@ from app.routers.dependencies import validate_user
 from pydantic import BaseModel, Field
 from app.utils.helpers import PyObjectId
 from bson.objectid import ObjectId
+from typing import Optional
 
 import json
 
@@ -15,13 +16,15 @@ class DatasetLabel(BaseModel):
     start: int
     end: int
     type: PyObjectId = Field(default_factory=ObjectId)
+    id: PyObjectId = Field(default=None, alias="_id")
 
 
 router = APIRouter()
 
 @router.post("/{id}/{labelingId}")
-async def createDatasetLabel(id, labelingId, body: DatasetLabel, project: str = Header(), user_data=Depends(validate_user)):
-    body = body.dict(by_alias=True)
+async def createDatasetLabel(id, labelingId, body: Request, project: str = Header(), user_data=Depends(validate_user)):
+    # body = body.dict(by_alias=True)
+    body =  await body.json()
     createdLabel = createLabel(id, project, labelingId, body)
     return Response(json.dumps(createdLabel, cls=JSONEncoder), media_type="application/json")
 

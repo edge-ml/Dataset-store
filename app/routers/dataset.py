@@ -41,7 +41,6 @@ async def getDataset(id, project: str = Header(), user_data=Depends(validate_use
 async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = Header(), user_data=Depends(validate_user)):
     dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
     res = orjson.dumps(dataset, option = orjson.OPT_SERIALIZE_NUMPY)
-
     return Response(res, media_type="application/json")
 
 # Get metadata of dataset

@@ -15,4 +15,4 @@ class DeviceApiManager:
 
     def get(self, apiKey):
         res = self.col.find_one({"deviceApiKey": apiKey})
-        return res
+        return {"userId" : res["userId"], "projectId": res["projectId"]}
