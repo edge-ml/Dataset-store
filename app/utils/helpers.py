@@ -1,4 +1,5 @@
 from bson.objectid import ObjectId
+import numpy as np
 
 def custom_index(array, compare_function):
     for i, v in enumerate(array):
@@ -21,3 +22,15 @@ class PyObjectId(ObjectId):
     @classmethod
     def __modify_schema__(cls, field_schema):
         field_schema.update(type='string')
+
+
+def parseTime(timestamp):
+    if "." not in timestamp:
+        return 
+    t_split = str(timestamp).split(".")
+    if len(t_split[0]) == 10:
+        return np.array(t_split[0] + t_split[1][0:3]).astype(np.uint64)
+    elif len(t_split[0]) == 13:
+        return np.array(t_split[0]).astype(np.uint64)
+    else:
+        raise ValueError("Timestamp is invalid")

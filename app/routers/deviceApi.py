@@ -13,27 +13,6 @@ router = APIRouter()
 
 ctrl = DatasetController()
 
-class FileDescriptor(BaseModel):
-    name: str
-    size: int
-    drop: List[str]
-    time: str
-
-class CSVLabel(BaseModel):
-    start: str
-    end: str
-    name: str
-    metaData: Dict[str, str]
-
-class CsvLabeling(BaseModel):
-    name: str
-    labels: List[CSVLabel]
-
-class CSVDatasetInfo(BaseModel):
-    name: str
-    files: List[FileDescriptor]
-    labeling: CsvLabeling
-
 @router.post("/csv")
 async def create_upload_files(files: List[UploadFile]):
     print("file upload")
@@ -50,28 +29,15 @@ async def create_upload_files(files: List[UploadFile]):
 
 @router.websocket("/csvws/{api_key}")
 async def upload_ws(websocket: WebSocket , apiData=Depends(validateApiKey)):
+    userId = apiData["userId"]
+    projectId = apiData["projectId"]
     try:
-        quit = False
         await websocket.accept()
-        while not quit:
-            command = await websocket.receive_text()
-            if command == "upload":
-                transmitting = True
-                while transmitting:
-                    info = await websocket.receive_json(mode="text")
-                    info = CSVDatasetInfo.parse_obj(info).dict(by_alias=True)
-                    print(info)
-                    total_size = sum([x["size"] for x in info["files"]])
-                    print(total_size)
-                    bytes = bytearray()
-                    while True:
-                        data = await websocket.receive_bytes()
-                        bytes += data
-                        if len(bytes) == total_size:
-                            print("Transmission complete", apiData["projectId"], apiData["userId"])
-                            ctrl.uploadDatasetDevice(info, bytes, projectId=apiData["projectId"] , userId=apiData["userId"])
-                            transmitting = False
-                            break
+        command = await websocket.receive_text()
+        if command == "upload":
+            await ctrl.uploadDatasetDevice(websocket, projectId, userId)
+        print("Closing websocket")
+        await websocket.close()
                     
     except WebSocketDisconnect:
         print("Websocket disconnected")

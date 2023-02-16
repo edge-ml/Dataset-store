@@ -14,6 +14,35 @@ from app.controller.labelingController import createLabeling
 from fastapi import UploadFile
 from app.utils.CsvParser import CsvParser
 import traceback
+from pydantic import BaseModel, Field
+from typing import Dict, List, Optional
+import json
+
+
+class FileDescriptor(BaseModel):
+    name: str
+    size: int
+    drop: List[str]
+    time: str
+
+class CSVLabel(BaseModel):
+    start: str
+    end: str
+    name: str
+    metaData: Optional[Dict[str, str]] = Field(default={})
+
+class CsvLabeling(BaseModel):
+    name: str
+    labels: List[CSVLabel]
+
+class CSVDatasetInfo(BaseModel):
+    name: str
+    files: List[FileDescriptor]
+    labeling: Optional[CsvLabeling]
+
+class EdgeMLCSVDatasetInfo(BaseModel):
+    name: str
+    files: List[FileDescriptor]
 
 class DatasetController():
 
@@ -63,7 +92,6 @@ class DatasetController():
                 binStore = BinaryStore(newt["_id"])
                 binStore.append(tsValues)
         except:
-            print("Handle here", newDatasetMeta["_id"])
             self.dbm.deleteDatasetById(project, newDatasetMeta["_id"])
             raise TypeError()
         return newDatasetMeta
@@ -176,34 +204,52 @@ class DatasetController():
                 print(e)
 
     # Upload whole datasets
-    def uploadDatasetDevice(self, file_info, byte_arr, projectId, userId):
+    async def receiveFileInfoAndCSV(self, websocket, projectId, userId, dataModel = CSVDatasetInfo):
+        transmitting = True
+        files_byte = bytearray()
+        while transmitting:
+            info = await websocket.receive_text()
+            info = json.loads(info)
+            info = dataModel.parse_obj(info)
+            print(info)
+            total_size = sum([x.size for x in info.files])
+            while True:
+                data = await websocket.receive_bytes()
+                files_byte += data
+                if len(files_byte) == total_size:
+                    transmitting = False
+                    break
+        return info, files_byte
+
+
+    def generateLabeling(self, projectId, labeling : CsvLabeling):
+        unique_labels_names = [x.name for x in labeling.labels]
+        unique_labels = [{"name": x, "color": f'#{"%06x" % random.randint(0, 0xFFFFFF)}'} for x in unique_labels_names]
+        return createLabeling(projectId, {"name": labeling.name, "labels": unique_labels})
+
+
+
+    async def uploadDatasetDevice(self, websocket, projectId, userId):
         try:
+            info, file_data = await self.receiveFileInfoAndCSV(websocket, projectId, userId)
+
+            dataset_name = info.name
+            labeling = info.labeling
+            file_info = info.files
+
+            # Add new labeling to the db
+            if labeling:
+                print("using labels")
+                newLabeling = self.generateLabeling(projectId=projectId, labeling=labeling)
+
+                label_type_map = {x["name"]: x["_id"] for x in newLabeling["labels"]}
 
 
-            dataset_name = file_info["name"]
-            labeling = file_info["labeling"]
-            file_info = file_info["files"]
-
-            labeling_name = labeling["name"]
-            labeling_labels = labeling["labels"]
-            unique_labels_names = [x["name"] for x in labeling_labels]
-
-            
-            print(unique_labels_names)
-            unique_labels = [{"name": x, "color": f'#{"%06x" % random.randint(0, 0xFFFFFF)}'} for x in unique_labels_names]
-
-
-            labeling = createLabeling(projectId, {"name": labeling_name, "labels": unique_labels})
-            labeling_id = labeling["_id"]
-            print(labeling)
-
-            label_type_map = {x["name"]: x["_id"] for x in labeling["labels"]}
-
-            print(label_type_map)
-
-            for x in labeling_labels:
-                x["type"] = label_type_map[str(x["name"])]
-            
+                # Assign the type to each dataset-label
+                dataset_labels = labeling.dict(by_alias=True)["labels"]
+                for x in dataset_labels:
+                    x["type"] = label_type_map[str(x["name"])]
+                
 
 
 
@@ -214,33 +260,29 @@ class DatasetController():
             headers = []
             file_names = []
             for i, info in enumerate(file_info):
-                bin = byte_arr[start_idx:start_idx+info["size"]]
-                file_info[i]["ids"] = []
-                start_idx += info["size"]
-                file = CsvParser(bin)
-                time, data, header = file.to_edge_ml_format()
-                if time is None:
+                bin = file_data[start_idx:start_idx+info.size]
+                start_idx += info.size
+                file = CsvParser(bin, drop=info.drop, time=info.time)
+                time, data, header = file.to_edge_ml()
+                if time is None: # Dataset empty
                     continue
                 for d, h in zip(data, header):
-                    if h in info["drop"]:
-                        continue
-                    print("processing ts")
                     tsId = ObjectId()
                     tsIds.append(tsId)
-                    print("Adding ts with id: ", tsId)
-                    binStore = BinaryStore(tsId, time_col=)
+                    binStore = BinaryStore(tsId)
                     start, end = binStore._appendValues(time, d)
                     starts.append(start)
                     ends.append(end)
                     headers.append(h)
-                    file_names.append(info["name"])
+                    file_names.append(info.name)
 
+
+            dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
             timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h} for s, e, tid, fName, h in zip(starts, ends, tsIds, file_names, headers)]
-        
             dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries, 
-            "labelings": [{"name": labeling_name, "labelingId": labeling_id, "labels": labeling_labels}]}
+            "labelings": dataset_labeling}
             newDatasetMeta = self.dbm.addDataset(dataset)
-            print("Added dataset: ", newDatasetMeta)
+            await websocket.send_json({"status": 200, "message": "success"})
         except Exception as e:
             print("Error", e)
             traceback.print_exc()
