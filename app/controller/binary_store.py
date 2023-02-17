@@ -5,11 +5,20 @@ import struct
 import numpy as np
 from scipy.signal import resample
 import lttbc
+import functools
 
 
 DATA_PREFIX = "DATA"
 
-cache = {}
+
+@functools.lru_cache(maxsize=512)
+def _readSeries(path):
+    with open(path, "rb") as f:
+        len = struct.unpack("I", f.read(4))[0]
+        time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
+        data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
+        return time_arr, data_arr
+
 
 class BinaryStore():
 
@@ -22,19 +31,9 @@ class BinaryStore():
             os.makedirs(DATA_PREFIX)
 
         self._path = join(DATA_PREFIX, self._id + ".bin")
-
-
+    
     def loadSeries(self):
-        if self._id not  in cache:
-            with open(self._path, "rb") as f:
-                len = struct.unpack("I", f.read(4))[0]
-                self.time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
-                self.data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
-                cache[self._id] = self
-        else:
-            self.time_arr = cache[self._id].time_arr
-            self.data_arr = cache[self._id].data_arr
-
+        self.time_arr, self.data_arr = _readSeries(self._path)
 
     def saveSeries(self):
         with open(join(DATA_PREFIX, self._id + ".bin"), "wb") as f:
