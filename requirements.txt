@@ -10,3 +10,4 @@ pyjwt
 requests
 pika
 aio-pika
+python-multipart
