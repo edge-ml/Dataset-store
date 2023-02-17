@@ -8,7 +8,7 @@ from app.routers.dependencies import validate_user
 from pydantic import BaseModel, Field
 from app.utils.helpers import PyObjectId
 from bson.objectid import ObjectId
-from typing import Optional
+from typing import Optional, Dict
 
 import json
 
@@ -17,6 +17,7 @@ class DatasetLabel(BaseModel):
     end: int
     type: PyObjectId = Field(default_factory=ObjectId)
     id: PyObjectId = Field(default=None, alias="_id")
+    metaData: Dict[str, str] = Field(default={})
 
 
 router = APIRouter()

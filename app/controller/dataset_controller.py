@@ -39,6 +39,7 @@ class CSVDatasetInfo(BaseModel):
     name: str
     files: List[FileDescriptor]
     labeling: Optional[CsvLabeling]
+    metaData: Optional[Dict[str, str]]
 
 class EdgeMLCSVDatasetInfo(BaseModel):
     name: str
@@ -250,22 +251,22 @@ class DatasetController():
                 for x in dataset_labels:
                     x["type"] = label_type_map[str(x["name"])]
                 
-
-
-
+            # Process each csv-file in the dataset
             start_idx = 0
             tsIds = []
             starts = []
             ends = []
             headers = []
             file_names = []
-            for i, info in enumerate(file_info):
-                bin = file_data[start_idx:start_idx+info.size]
-                start_idx += info.size
-                file = CsvParser(bin, drop=info.drop, time=info.time)
+            for i, f_info in enumerate(file_info):
+                bin = file_data[start_idx:start_idx+f_info.size]
+                start_idx += f_info.size
+                file = CsvParser(bin, drop=f_info.drop, time=f_info.time)
                 time, data, header = file.to_edge_ml()
                 if time is None: # Dataset empty
                     continue
+
+                # Process each time-series in the dataset
                 for d, h in zip(data, header):
                     tsId = ObjectId()
                     tsIds.append(tsId)
@@ -274,13 +275,13 @@ class DatasetController():
                     starts.append(start)
                     ends.append(end)
                     headers.append(h)
-                    file_names.append(info.name)
+                    file_names.append(f_info.name)
 
 
             dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
             timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h} for s, e, tid, fName, h in zip(starts, ends, tsIds, file_names, headers)]
             dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries, 
-            "labelings": dataset_labeling}
+            "labelings": dataset_labeling, "metaData": info.metaData}
             newDatasetMeta = self.dbm.addDataset(dataset)
             await websocket.send_json({"status": 200, "message": "success"})
         except Exception as e:
