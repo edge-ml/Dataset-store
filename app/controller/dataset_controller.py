@@ -9,7 +9,6 @@ from app.utils.helpers import custom_index
 from app.db.deviceAPi import DeviceApiManager
 import requests
 import random
-from app.internal.config import BACKEND_URI
 from app.controller.labelingController import createLabeling
 from fastapi import UploadFile
 from app.utils.CsvParser import CsvParser

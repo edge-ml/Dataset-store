@@ -26,7 +26,7 @@ class DatasetLabeling(BaseModel):
 
 class DatasetSchema(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    projectId: PyObjectId = Field(default_factory=ObjectId)
+    projectId: PyObjectId
     name: str
     start: int
     end: int

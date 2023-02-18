@@ -56,8 +56,6 @@ class BinaryStore():
             end_time = int(end_time)
             start_time = int(start_time)
             [start_index, end_index] = np.searchsorted(self.time_arr, [start_time, end_time])
-            start_time = min(0, start_time - 100)
-            end_time = max(0, end_time + 100)
         time_res = self.time_arr[start_index:end_index]
         data_res = self.data_arr[start_index:end_index]
 
@@ -73,7 +71,6 @@ class BinaryStore():
         return {"time": self.time_arr, "data": self.data_arr}
 
     def append(self, tsValues):
-        
         if len(tsValues) == 0:
             time, data = np.array([], dtype=np.uint64), np.array([], dtype=np.float32)
         else:
