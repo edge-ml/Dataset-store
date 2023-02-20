@@ -34,4 +34,6 @@ def deleteLabel(project_id, dataset_id, labeling_id, label_id):
                 print(label)
                 if str(label["_id"]) == str(label_id):
                     del dataset["labelings"][i]["labels"][j]
+                    if len(dataset["labelings"][i]["labels"]) == 0:
+                        del dataset["labelings"][i]
     dbm.updateDataset(dataset_id, project_id, dataset)
