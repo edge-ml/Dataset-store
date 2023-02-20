@@ -1,3 +1,4 @@
+from io import StringIO
 from app.db.dataset import DatasetDBManager
 from .binary_store import BinaryStore
 from typing import Union
@@ -16,7 +17,9 @@ import traceback
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
 import json
-
+import pandas as pd
+from app.db.labelings import LabelingDBManager
+from io import BytesIO
 
 class FileDescriptor(BaseModel):
     name: str
@@ -53,6 +56,10 @@ class DatasetController():
 
         self.dbm = DatasetDBManager()
         self.deviceAPI = DeviceApiManager()
+        self.dbm_labeling = LabelingDBManager()
+
+
+
     def _splitMeta_Data(self, timeSeries):
         tsValues = timeSeries["data"]
         metaData = timeSeries
@@ -287,3 +294,44 @@ class DatasetController():
             print("Error", e)
             traceback.print_exc()
 
+
+    async def getCSV(self, projectId, dataset_id):
+        dataset = self.dbm.getDatasetById(dataset_id, projectId)
+        fileName = dataset["name"]
+        timeSeries = dataset["timeSeries"]
+        final_df = None
+        for ts in timeSeries:
+            binStore = BinaryStore(ts["_id"])
+            binStore.loadSeries()
+            ts_data = binStore.getFull()
+            df = pd.DataFrame(ts_data)
+            print(df.columns)
+            if final_df is None:
+                final_df = df
+            else:
+                final_df = pd.merge(final_df, df, how="outer", on='time')
+            final_df.columns = [*final_df.columns[:-1], "sensor_" + ts["name"]]
+
+        print(final_df.dtypes)
+        final_df.set_index("time")
+        
+        # Add labelings
+        for labeling in dataset["labelings"]:
+
+            # Get labeling from db
+            labeling_definition = self.dbm_labeling.get_single(projectId, labeling["labelingId"])
+            print(labeling_definition)
+            labeling_name = labeling_definition["name"]
+            
+            for label in labeling_definition["labels"]:
+                dataset_labels = filter(lambda x: x["type"] == label["_id"], labeling["labels"])
+                newLabelCol = "label_" + labeling_name + "_" + label["name"]
+                final_df[newLabelCol] = ""
+                for label in dataset_labels:
+                    start = int(label["start"])
+                    end = int(label["end"])
+                    final_df.loc[start:end, newLabelCol] = "x"
+                    print(start, end)
+        textStream = StringIO()
+        final_df.to_csv(textStream, index=False)
+        return textStream, fileName

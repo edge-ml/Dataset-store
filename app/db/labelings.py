@@ -33,6 +33,10 @@ class LabelingDBManager:
         res = list(res)
         return res if res is not None else []
 
+    def get_single(self, projectId, labeling_id):
+        res = self.col.find_one({"projectId": ObjectId(projectId), "_id": ObjectId(labeling_id)})
+        return res
+
     def create(self, projectId, labeling):
         labeling = LabelingModel.parse_obj(labeling).dict(by_alias=True)
         query = {"projectId": ObjectId(projectId), "name": labeling["name"]}
