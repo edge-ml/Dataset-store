@@ -11,3 +11,4 @@ requests
 pika
 aio-pika
 python-multipart
+pandas
