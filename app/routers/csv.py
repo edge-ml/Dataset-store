@@ -11,7 +11,7 @@ import json
 import orjson
 import io
 import zipfile
-import cachetools
+from app.controller.downloadController import registerForDownload, download
 
 requests = {}
 
@@ -26,25 +26,9 @@ class DatasetIdList(BaseModel):
 
 @router.post("/")
 async def get_multiple_csv_datast(body: DatasetIdList, project: str = Header(), user_data=Depends(validate_user)):
-    id = "%06x" % random.randint(0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF) 
-    requests[id] = [project, body.datasets]
+    id = registerForDownload(project, body.datasets)
     return {"id": id}
 
 @router.get("/download/{id}")
 async def download_csv(id):
-    [project, ids] = requests[id]
-    if len(ids) > 1:
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "a",
-                     zipfile.ZIP_DEFLATED, False) as file:
-            for id in ids:
-                fileCSV, fileName = await ctrl.getCSV(project, id)
-                file.writestr(fileName, fileCSV.getvalue())
-        response = StreamingResponse(iter([zip_buffer.getvalue()]), media_type="application/zip")
-        response.headers["Content-Disposition"] = f"attachment; filename=all.zip"
-        return response
-    else:
-        file, fileName = await ctrl.getCSV(project, ids[0])
-        response = StreamingResponse(iter([file.getvalue()]), media_type="text/csv")
-        response.headers["Content-Disposition"] = f"attachment; filename={fileName}.csv"
-        return response
+    return await download(id)

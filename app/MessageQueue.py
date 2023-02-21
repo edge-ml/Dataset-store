@@ -1,7 +1,7 @@
 import asyncio
 import aio_pika
 import aio_pika.abc
-
+import os
 
 import json
 from bson.objectid import ObjectId
@@ -16,6 +16,8 @@ async def main(loop):
     connection = await aio_pika.connect_robust(
         "amqp://guest:guest@127.0.0.1/", loop=loop
     )
+
+    print(connection)
 
     async with connection:
         queue_name = "edgeml"
@@ -41,4 +43,4 @@ async def main(loop):
                         deleteProjectLabeling(ObjectId(payload))
 
 
-                    
+                
