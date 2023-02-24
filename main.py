@@ -1,13 +1,26 @@
 import uvicorn
+import argparse
+from app.internal.config import loadConfig
+parser = argparse.ArgumentParser(description="Run the database-store")
+parser.add_argument('--env', default="dev", choices=["dev", "docker"])
+args = parser.parse_args()
+env = args.env
+if env == "dev":
+    loadConfig("development")
+    print("load dev")
+if env == "docker":
+    loadConfig("docker")
+    print("load docker")
+from app.internal.config import PROJECT_DBNAME
+print("project: ", PROJECT_DBNAME)
 
-from app.internal.config import ENV
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from app.MessageQueue import main
 import asyncio
-
+import argparse
 from app.routers import router
 
 
@@ -59,10 +72,8 @@ async def shutdown():
 
 
 if __name__ == "__main__":
-
-    reload = True
-    if ENV == "production":
-        reload = False
-    print("Reload: ", reload)
-    uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=reload)
+    if env == "dev":
+        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True)
+    if env == "docker":
+        uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=20)
 
