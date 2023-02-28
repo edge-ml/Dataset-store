@@ -15,6 +15,7 @@ class LabelingModel(BaseModel):
     name: str
     labels: List[LabelModel]
     projectId: PyObjectId
+    id: PyObjectId = Field(alias="_id")
 
 
 
