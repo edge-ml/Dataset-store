@@ -11,7 +11,7 @@ import functools
 DATA_PREFIX = "DATA"
 
 
-@functools.lru_cache(maxsize=512)
+# @functools.lru_cache(maxsize=512)
 def _readSeries(path):
     with open(path, "rb") as f:
         len = struct.unpack("I", f.read(4))[0]
@@ -81,8 +81,10 @@ class BinaryStore():
     def _appendValues(self, time, data):
         time = np.array(time, dtype=np.uint64)
         data = np.array(data, dtype=np.float32)
+        oldLen = len(self.time_arr)
         self.time_arr = np.append(self.time_arr, time)
         self.data_arr = np.append(self.data_arr, data)
+        assert(oldLen + len(time) == len(self.time_arr))
         inds = self.time_arr.argsort()
         self.time_arr = self.time_arr[inds]
         self.data_arr = self.data_arr[inds]

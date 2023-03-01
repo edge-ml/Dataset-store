@@ -134,7 +134,7 @@ class DatasetController():
     def append(self, id, project, body, projectId):
         dataset = self.dbm.getDatasetById(id, project)
         datasetIds = [x["_id"] for x in dataset["timeSeries"]]
-        sendIds = [ObjectId(x["id"]) for x in body]
+        sendIds = [ObjectId(x["_id"]) for x in body]
         if set(datasetIds) != set(sendIds):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
 
@@ -142,14 +142,12 @@ class DatasetController():
         newStart = dataset["start"]
         newEnd = dataset["end"]
         for ts in body:
-            binStore = BinaryStore(ts["id"])
+            binStore = BinaryStore(ts["_id"])
             binStore.loadSeries()
             tmpStart, tmpEnd = binStore.append(ts["data"])
             newStart = min(newStart, tmpStart)
             newEnd = max(newEnd, tmpEnd)
-            binStore.saveSeries()
-
-            idx = custom_index(dataset["timeSeries"], lambda x: ObjectId(x["_id"]) == ObjectId(ts["id"]))
+            idx = custom_index(dataset["timeSeries"], lambda x: ObjectId(x["_id"]) == ObjectId(ts["_id"]))
             oldStart = int(dataset["timeSeries"][idx]["start"])
             oldEnd = int(dataset["timeSeries"][idx]["end"])
             dataset["timeSeries"][idx]["start"] = min(oldStart, tmpStart) if oldStart is not None else tmpStart

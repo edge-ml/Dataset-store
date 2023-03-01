@@ -3,7 +3,7 @@ from fastapi.param_functions import Depends
 from app.utils.json_encoder import JSONEncoder
 from app.routers.dependencies import validate_user
 from app.utils.helpers import PyObjectId
-
+import traceback
 import json
 import orjson
 
@@ -57,5 +57,9 @@ async def deleteDatasetById(id, project: str = Header(), user_data=Depends(valid
 
 @router.post("/{id}/append")
 async def appendToDataset(id, body: Request, project: str = Header(), user_data=Depends(validate_user)):
-    body = await body.json()
-    ctrl.append(id, project, body, projectId=project)
+    try:
+        body = await body.json()
+        ctrl.append(id, project, body, projectId=project)
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
