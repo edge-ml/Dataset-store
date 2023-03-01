@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Header, Response
 from fastapi.param_functions import Depends
 from app.utils.json_encoder import JSONEncoder
 from app.routers.dependencies import validate_user
+from app.utils.helpers import PyObjectId
 
 import json
 import orjson
@@ -24,17 +25,23 @@ async def createDataset(body: Request, project: str = Header(), user_data=Depend
     ctrl.addDataset(dataset=body, project=project, user_id=user_id)
     return {"message": "success"}
 
+# Get metadata of dataset
+@router.get("/{id}")
+async def getDatasetMetaData(id, project : str = Header(), user_data=Depends(validate_user)):
+    dataset = ctrl.getDatasetById(id, project, onlyMeta=True)
+    return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
-@router.get("/project")
+
+@router.get("/")
 async def getDatasetsInProject(project: str = Header(), user_data=Depends(validate_user)):
     data = ctrl.getDatasetInProject(project)
     return Response(json.dumps(data, cls=JSONEncoder), media_type="application/json")
 
 # Get dataset
-@router.get("/{id}")
-async def getDataset(id, project: str = Header(), user_data=Depends(validate_user)):
-    dataset = ctrl.getDatasetById(id, project)
-    return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
+# @router.get("/{id}")
+# async def getDataset(id, project: str = Header(), user_data=Depends(validate_user)):
+#     dataset = ctrl.getDatasetById(id, project)
+#     return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 
 @router.get("/{id}/ts/{start}/{end}/{max_resolution}")
@@ -42,12 +49,6 @@ async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = He
     dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
     res = orjson.dumps(dataset, option = orjson.OPT_SERIALIZE_NUMPY)
     return Response(res, media_type="application/json")
-
-# Get metadata of dataset
-@router.get("/{id}/meta")
-async def getDatasetMetaData(id, project : str = Header(), user_data=Depends(validate_user)):
-    dataset = ctrl.getDatasetById(id, project, onlyMeta=True)
-    return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
 # Delete dataset
 @router.delete("/{id}")

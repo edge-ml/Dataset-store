@@ -2,14 +2,20 @@ from fastapi import APIRouter
 from app.routers import dataset, deviceApi, label, labelings, csv
 
 router = APIRouter()
+
+router.include_router(
+    csv.router,
+    prefix="/datasets/csv"
+)
+
 router.include_router(
     dataset.router,
-    prefix='/dataset',
+    prefix='/datasets',
 )
 
 router.include_router(
     label.router,
-    prefix='/label',
+    prefix='/datasets/labelings',
 )
 
 router.include_router(
@@ -20,9 +26,4 @@ router.include_router(
 router.include_router(
     labelings.router,
     prefix="/labelings"
-)
-
-router.include_router(
-    csv.router,
-    prefix="/csv"
 )
