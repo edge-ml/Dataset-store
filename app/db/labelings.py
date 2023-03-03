@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from app.internal.config import MONGO_URI, PROJECT_COLLNAME, PROJECT_DBNAME, LABELING_COLLNAME
+from app.internal.config import MONGO_URI, PROJECT_COLLNAME, PROJECT_DBNAME, LABELING_COLLNAME, DATASTORE_DBNAME
 from pydantic import BaseModel, ValidationError, validator, Field
 from typing import Dict, List
 from app.utils.helpers import PyObjectId
@@ -23,7 +23,7 @@ class LabelingDBManager:
 
     def __init__(self) -> None:
         self.mongo_client = MongoClient(MONGO_URI)
-        self.db = self.mongo_client[PROJECT_DBNAME]
+        self.db = self.mongo_client[DATASTORE_DBNAME]
         self.col = self.db[LABELING_COLLNAME]
 
         # Create unique index for the labeling name
