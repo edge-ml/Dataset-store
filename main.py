@@ -39,7 +39,8 @@ class DatasetStore(FastAPI):
         )
 
         self.include_router(
-            router
+            router,
+            prefix="/ds"
         )
 
 
