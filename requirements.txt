@@ -12,3 +12,4 @@ pika
 aio-pika
 python-multipart
 pandas
+websockets
