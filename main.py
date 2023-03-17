@@ -74,7 +74,7 @@ async def shutdown():
 
 if __name__ == "__main__":
     if env == "dev":
-        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True)
+        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True, log_level="trace")
     if env == "docker":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=20)
 

@@ -64,6 +64,7 @@ async def upload_ws(websocket: WebSocket , apiData=Depends(validateApiKey)):
             await ctrl.uploadDatasetDevice(websocket, projectId, userId)
         print("Closing websocket")
         await websocket.close()
-                    
-    except WebSocketDisconnect:
-        print("Websocket disconnected")
+
+    except Exception as e:
+        print("Error")
+        print(e)

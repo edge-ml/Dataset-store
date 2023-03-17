@@ -8,7 +8,7 @@ import lttbc
 import functools
 
 
-DATA_PREFIX = "DATA"
+DATA_PREFIX = "../TS_DATA"
 
 
 # @functools.lru_cache(maxsize=512)

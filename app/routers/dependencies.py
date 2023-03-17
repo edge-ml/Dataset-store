@@ -9,10 +9,7 @@ from app.db.deviceAPi import DeviceApiManager
 project_dbm = ProjectDBManager()
 deviceApi_dbm = DeviceApiManager()
 
-async def extract_project_id(project: str = Header(...)):
-    return project
-
-async def validate_user(Authorization: str = Header(...), project_id=Depends(extract_project_id)):
+async def validate_user(Authorization: str = Header(...), project: str = Header(...)):
     try:
         token = Authorization.split(" ")[1]
         decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
@@ -20,7 +17,7 @@ async def validate_user(Authorization: str = Header(...), project_id=Depends(ext
             raise jwt.ExpiredSignatureError
         user_id = ObjectId(decoded["id"])
         sub_level = decoded.get("subscriptionLevel")
-        project = project_dbm.get_project(project_id)
+        project = project_dbm.get_project(project)
         if not project:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
         if project['admin'] != user_id and user_id not in project['users']:
