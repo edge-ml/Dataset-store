@@ -6,9 +6,9 @@ import numpy as np
 from scipy.signal import resample
 import lttbc
 import functools
+from app.internal.config import TSDATA
 
-
-DATA_PREFIX = "DATA"
+DATA_PREFIX = TSDATA
 
 
 # @functools.lru_cache(maxsize=512)
