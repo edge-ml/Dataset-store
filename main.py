@@ -22,8 +22,6 @@ from app.MessageQueue import main
 import asyncio
 import argparse
 from app.routers import router
-from hypercorn.asyncio import serve
-from hypercorn.config import Config
 from fastapi.middleware.gzip import GZipMiddleware
 
 
