@@ -22,6 +22,9 @@ from app.MessageQueue import main
 import asyncio
 import argparse
 from app.routers import router
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
+from fastapi.middleware.gzip import GZipMiddleware
 
 
 class DatasetStore(FastAPI):
@@ -37,6 +40,8 @@ class DatasetStore(FastAPI):
             allow_methods=["*"],
             allow_headers=["*"]
         )
+
+        self.add_middleware(GZipMiddleware, minimum_size=1000)
 
         self.include_router(
             router,
@@ -74,7 +79,7 @@ async def shutdown():
 
 if __name__ == "__main__":
     if env == "dev":
-        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True)
+        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True, log_level="trace", ws="wsproto", ws_ping_interval=10)
     if env == "docker":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=20)
 

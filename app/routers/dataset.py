@@ -6,6 +6,7 @@ from app.utils.helpers import PyObjectId
 import traceback
 import json
 import orjson
+from typing import List
 
 from app.controller.dataset_controller import DatasetController
 
@@ -43,12 +44,20 @@ async def getDatasetsInProject(project: str = Header(), user_data=Depends(valida
 #     dataset = ctrl.getDatasetById(id, project)
 #     return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
 
+@router.post("/{id}/ts/{start}/{end}/{max_resolution}")
+async def getTimeSeriesDatasetPartial(id, start, end, max_resolution, body: List[str], project: str = Header(), user_data=Depends(validate_user)):
+    print("partial route")
+    timeSeries = ctrl.getDatasetTimeSeriesStartEnd(id, body, project, start, end, max_resolution)
+    res = orjson.dumps(timeSeries, option = orjson.OPT_SERIALIZE_NUMPY)
+    return Response(res, media_type="application/json")
+
 
 @router.get("/{id}/ts/{start}/{end}/{max_resolution}")
 async def getTimeSeriesDataset(id, start, end, max_resolution, project: str = Header(), user_data=Depends(validate_user)):
     dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
     res = orjson.dumps(dataset, option = orjson.OPT_SERIALIZE_NUMPY)
     return Response(res, media_type="application/json")
+
 
 # Delete dataset
 @router.delete("/{id}")

@@ -121,6 +121,7 @@ class DatasetController():
             binStore.delete()
         
     def getDataSetByIdStartEnd(self, id, projectId, start, end, max_resolution):
+        print("full")
         dataset = self.dbm.getDatasetById(id, project_id=projectId)
         ts_ids = [x["_id"] for x in dataset["timeSeries"]]
         res = []
@@ -129,6 +130,20 @@ class DatasetController():
             binStore.loadSeries()
             d = binStore.getPart(start, end, max_resolution)
             res.append(d)
+        return res
+
+    def getDatasetTimeSeriesStartEnd(self, dataset_id, ts_id, project_id, start, end, max_resolution):
+        print("partial")
+        dataset = self.dbm.getDatasetById(dataset_id, project_id=project_id)
+        dataset_ids = [str(x["_id"]) for x in dataset["timeSeries"]]
+        res = []
+        print(ts_id)
+        for t in ts_id:
+            if str(t) not in dataset_ids:
+                raise HTTPException(status.HTTP_404_NOT_FOUND)
+            binStore = BinaryStore(t)
+            binStore.loadSeries()
+            res.append(binStore.getPart(start, end, max_resolution))
         return res
 
     def append(self, id, project, body, projectId):
@@ -218,12 +233,14 @@ class DatasetController():
             info = dataModel.parse_obj(info)
             print(info)
             total_size = sum([x.size for x in info.files])
+            print("total_size", total_size)
             while True:
                 data = await websocket.receive_bytes()
                 files_byte += data
                 if len(files_byte) == total_size:
                     transmitting = False
                     break
+                print(total_size, len(files_byte), len(files_byte) / total_size * 100)
         return info, files_byte
 
 

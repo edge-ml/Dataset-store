@@ -8,6 +8,7 @@ from typing import List, Dict
 from pydantic import BaseModel, conlist
 from app.controller.api_controller import initDataset, appendDataset
 from typing import Union
+import traceback
 
 import json
 
@@ -57,9 +58,11 @@ async def append_dataset(body:TimeSeriesDataModel, apiData=Depends(validateApiKe
 async def upload_ws(websocket: WebSocket , apiData=Depends(validateApiKey)):
     userId = apiData["userId"]
     projectId = apiData["projectId"]
+    print(userId, projectId)
     try:
         await websocket.accept()
         command = await websocket.receive_text()
+        print(command)
         if command == "upload":
             await ctrl.uploadDatasetDevice(websocket, projectId, userId)
         print("Closing websocket")
@@ -67,3 +70,7 @@ async def upload_ws(websocket: WebSocket , apiData=Depends(validateApiKey)):
                     
     except WebSocketDisconnect:
         print("Websocket disconnected")
+    
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
