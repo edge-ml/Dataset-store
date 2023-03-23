@@ -279,33 +279,47 @@ class DatasetController():
             ends = []
             headers = []
             file_names = []
-            for i, f_info in enumerate(file_info):
-                bin = file_data[start_idx:start_idx+f_info.size]
-                start_idx += f_info.size
-                file = CsvParser(bin, drop=f_info.drop, time=f_info.time)
-                time, data, header = file.to_edge_ml()
-                if time is None: # Dataset empty
-                    continue
 
-                # Process each time-series in the dataset
-                for d, h in zip(data, header):
-                    tsId = ObjectId()
-                    tsIds.append(tsId)
-                    binStore = BinaryStore(tsId)
-                    start, end = binStore._appendValues(time, d)
-                    starts.append(start)
-                    ends.append(end)
-                    headers.append(h)
-                    file_names.append(f_info.name)
+
+            try:
+                for i, f_info in enumerate(file_info):
+                    bin = file_data[start_idx:start_idx+f_info.size]
+                    start_idx += f_info.size
+                    file = CsvParser(bin, drop=f_info.drop, time=f_info.time)
+                    time, data, header = file.to_edge_ml()
+                    if time is None: # Dataset empty
+                        continue
+
+                    # Process each time-series in the dataset
+                    for d, h in zip(data, header):
+                        tsId = ObjectId()
+                        tsIds.append(tsId)
+                        binStore = BinaryStore(tsId)
+                        start, end = binStore._appendValues(time, d)
+                        starts.append(start)
+                        ends.append(end)
+                        headers.append(h)
+                        file_names.append(f_info.name)
+            except Exception as e:
+                # Delete all saved datasets when there is an exception
+                for tsId in tsIds:
+                    BinaryStore(tsId).delete()
+                raise e
 
 
             dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
             timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h} for s, e, tid, fName, h in zip(starts, ends, tsIds, file_names, headers)]
             dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries, 
             "labelings": dataset_labeling, "metaData": info.metaData}
-            newDatasetMeta = self.dbm.addDataset(dataset)
+            try:
+                newDatasetMeta = self.dbm.addDataset(dataset)
+            except:
+                for tsId in tsIds:
+                    BinaryStore(tsId).delete();
+                    raise e
             await websocket.send_json({"status": 200, "message": "success"})
         except Exception as e:
+            await websocket.send_json({"status": 500, "message": e})
             print("Error", e)
             traceback.print_exc()
 
