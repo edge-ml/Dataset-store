@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Header, Response, UploadFile, File, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, Header, Response, UploadFile, File, WebSocket, WebSocketDisconnect, Form
 from fastapi.param_functions import Depends
 
 from app.controller.dataset_controller import DatasetController
@@ -74,3 +74,11 @@ async def upload_ws(websocket: WebSocket , apiData=Depends(validateApiKey)):
     except Exception as e:
         print(e)
         print(traceback.format_exc())
+
+@router.post("/dataset/device/{api_key}")
+async def upload_files(json_data = Form(...), files: List[UploadFile] = File(...), apiData=Depends(validateApiKey)):
+
+    fileInfo = json.loads(json_data)
+    userId = apiData["userId"]
+    projectId = apiData["projectId"]
+    await ctrl.uploadDatasetDevice(fileInfo, files, projectId, userId)

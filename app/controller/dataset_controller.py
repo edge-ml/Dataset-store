@@ -251,10 +251,9 @@ class DatasetController():
 
 
 
-    async def uploadDatasetDevice(self, websocket, projectId, userId):
+    async def uploadDatasetDevice(self, info, files, projectId, userId):
         try:
-            info, file_data = await self.receiveFileInfoAndCSV(websocket, projectId, userId)
-
+            info = CSVDatasetInfo.parse_obj(info)
             dataset_name = info.name
             labeling = info.labeling
             file_info = info.files
@@ -283,7 +282,7 @@ class DatasetController():
 
             try:
                 for i, f_info in enumerate(file_info):
-                    bin = file_data[start_idx:start_idx+f_info.size]
+                    bin = await files[i].read()
                     start_idx += f_info.size
                     file = CsvParser(bin, drop=f_info.drop, time=f_info.time)
                     time, data, header = file.to_edge_ml()
@@ -304,7 +303,7 @@ class DatasetController():
                 # Delete all saved datasets when there is an exception
                 for tsId in tsIds:
                     BinaryStore(tsId).delete()
-                raise e
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
             dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
@@ -317,11 +316,11 @@ class DatasetController():
                 for tsId in tsIds:
                     BinaryStore(tsId).delete();
                     raise e
-            await websocket.send_json({"status": 200, "message": "success"})
+            return True
         except Exception as e:
-            await websocket.send_json({"status": 500, "message": e})
             print("Error", e)
             traceback.print_exc()
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
     async def getCSV(self, projectId, dataset_id):
