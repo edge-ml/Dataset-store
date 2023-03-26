@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Request, Header, Response
+from fastapi import APIRouter, HTTPException, status, Request, Header, Response, Form, File, UploadFile
 from fastapi.param_functions import Depends
 from app.utils.json_encoder import JSONEncoder
+from app.utils.CsvParser import CsvParser
 from app.routers.dependencies import validate_user
 from app.utils.helpers import PyObjectId
 import traceback
@@ -24,6 +25,35 @@ async def createDataset(body: Request, project: str = Header(), user_data=Depend
     # body = body.dict(by_alias=True)
     (user_id, _, _) = user_data
     ctrl.addDataset(dataset=body, project=project, user_id=user_id)
+    return {"message": "success"}
+
+# Create dataset from csv file
+# TODO: handle labels
+@router.post("/create")
+async def createDataset(CSVFile: UploadFile = File(...), project:str = Header(), user_data = Depends(validate_user)):
+    name = CSVFile.filename[:-4] if CSVFile.filename.endswith('.csv') else CSVFile.filename
+    content = await CSVFile.read()
+    parser = CsvParser(content)
+    timestamps, sensor_data, label_data, sensor_names, label_names = parser.to_edge_ml_format()
+    if sensor_data is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="The file has no data")
+    dataset = {
+        'name': name,
+        'start': timestamps[0],
+        'end': timestamps[-1],
+        'timeSeries': [{
+            'name': sensor,
+            'start': timestamps[0],
+            'end': timestamps[-1],
+            'data': list(zip(timestamps, sensor_data[sensor_idx]))
+        } for sensor_idx, sensor in enumerate(sensor_names)]
+    }
+    (user_id, _, _) = user_data
+    try:
+        ctrl.addDataset(dataset, project=project, user_id=user_id)
+    except Exception as exp:
+        print(exp)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
     return {"message": "success"}
 
 # Get metadata of dataset

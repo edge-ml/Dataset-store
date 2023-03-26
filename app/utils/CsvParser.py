@@ -29,25 +29,42 @@ class CsvParser():
         header = lines[0]
         labels = []
 
-    # def to_edge_ml_format(self):
-    #     line_data = self.arr.decode('utf-8').splitlines()
-    #     str_data = [x.split(",") for x in line_data]
+    def _calcTime(self, x):
+        pass
 
-    #     if len(str_data) < 2:
-    #         print("no data")
-    #         return None, None, None
+    def to_edge_ml_format(self):
+        line_data = self.arr.decode('utf-8').splitlines()
+        str_data = [x.split(",") for x in line_data]
 
+        if len(str_data) < 2:
+            print("no data")
+            return None, None, None, None, None
 
-    #     data = np.array(str_data)
-    #     header = data[0]
-    #     time = np.array([self._calcTime(x) for x in data[1:,0]]).astype(np.uint64)
-    #     data = data[1:, 1:].astype(np.float32)
+        data = np.array(str_data)
+        header = data[0]
+        data = data[1:]
+        sort_indices = np.argsort(data[:, 0].astype(np.uint64))
+        sorted_data = data[sort_indices]
+        time = sorted_data[:, 0]
+        
+        sensor_idx_until = np.argwhere(np.char.startswith(header, 'label_'))
+        
+        # no label given
+        if np.size(sensor_idx_until) == 0:
+            sensor_idx_until = len(header) + 1
+        else:
+            # take the first index
+            sensor_idx_until = sensor_idx_until[0][0]
 
-    #     data = np.nan_to_num(data)
-    #     datas = []
-    #     for i in range(data.shape[1]):
-    #         datas.append(data[:, i])
-    #     return time, datas, header[1:]
+        sensor_data = sorted_data[0:, 1:sensor_idx_until].T
+        sensor_data = np.nan_to_num(sensor_data)
+        
+        label_data = sorted_data[0:, sensor_idx_until:].T
+        
+        sensor_names = header[1:sensor_idx_until]
+        label_names = header[sensor_idx_until:]
+
+        return time, sensor_data, label_data, sensor_names, label_names
 
     def _buffer_to_numpy(self, buf):
         line_data = self.arr.decode('utf-8').splitlines()
