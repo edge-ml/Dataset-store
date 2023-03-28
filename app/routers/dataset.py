@@ -31,28 +31,10 @@ async def createDataset(body: Request, project: str = Header(), user_data=Depend
 # TODO: handle labels
 @router.post("/create")
 async def createDataset(CSVFile: UploadFile = File(...), project:str = Header(), user_data = Depends(validate_user)):
-    name = CSVFile.filename[:-4] if CSVFile.filename.endswith('.csv') else CSVFile.filename
-    content = await CSVFile.read()
-    parser = CsvParser(content)
-    timestamps, sensor_data, label_data, sensor_names, label_names = parser.to_edge_ml_format()
-    if sensor_data is None:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="The file has no data")
-    dataset = {
-        'name': name,
-        'start': timestamps[0],
-        'end': timestamps[-1],
-        'timeSeries': [{
-            'name': sensor,
-            'start': timestamps[0],
-            'end': timestamps[-1],
-            'data': list(zip(timestamps, sensor_data[sensor_idx]))
-        } for sensor_idx, sensor in enumerate(sensor_names)]
-    }
     (user_id, _, _) = user_data
     try:
-        ctrl.addDataset(dataset, project=project, user_id=user_id)
+        await ctrl.CSVUpload(CSVFile, project, user_id)
     except Exception as exp:
-        print(exp)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
     return {"message": "success"}
 

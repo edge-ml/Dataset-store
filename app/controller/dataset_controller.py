@@ -124,7 +124,7 @@ class DatasetController():
         for id in ts_ids:
             binStore = BinaryStore(id)
             binStore.delete()
-        
+
     def getDataSetByIdStartEnd(self, id, projectId, start, end, max_resolution):
         print("full")
         dataset = self.dbm.getDatasetById(id, project_id=projectId)
@@ -158,7 +158,7 @@ class DatasetController():
         if set(datasetIds) != set(sendIds):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
 
- 
+
         newStart = dataset["start"]
         newEnd = dataset["end"]
         for ts in body:
@@ -176,8 +176,30 @@ class DatasetController():
         dataset["start"] = int(newStart)
         dataset["end"] = int(newEnd)
         self.dbm.updateDataset(id, project, dataset=dataset)
-        return 
+        return
 
+    async def CSVUpload(self, file: UploadFile, project: str, user_id: str):
+        name = file.filename[:-4] if file.filename.endswith(
+            '.csv') else file.filename
+        content = await file.read()
+        parser = CsvParser(content)
+        timestamps, sensor_data, label_data, sensor_names, label_names = parser.to_edge_ml_format()
+        
+        if sensor_data is None:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                                detail="The file has no data")
+        dataset = {
+            'name': name,
+            'start': timestamps[0],
+            'end': timestamps[-1],
+            'timeSeries': [{
+                'name': sensor,
+                'start': timestamps[0],
+                'end': timestamps[-1],
+                'data': list(zip(timestamps, sensor_data[sensor_idx]))
+            } for sensor_idx, sensor in enumerate(sensor_names)]
+        }
+        self.addDataset(dataset, project=project, user_id=user_id)
 
     def externalUpload(self, api_key, user_id, body):
         # Get labels from dataset
@@ -275,7 +297,7 @@ class DatasetController():
                 dataset_labels = labeling.dict(by_alias=True)["labels"]
                 for x in dataset_labels:
                     x["type"] = label_type_map[str(x["name"])]
-                
+
             # Process each csv-file in the dataset
             start_idx = 0
             tsIds = []
@@ -313,7 +335,7 @@ class DatasetController():
 
             dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
             timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h} for s, e, tid, fName, h in zip(starts, ends, tsIds, file_names, headers)]
-            dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries, 
+            dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries,
             "labelings": dataset_labeling, "metaData": info.metaData}
             try:
                 newDatasetMeta = self.dbm.addDataset(dataset)
@@ -347,7 +369,7 @@ class DatasetController():
 
         print(final_df.dtypes)
         final_df.set_index("time")
-        
+
         # Add labelings
         for labeling in dataset["labelings"]:
 
@@ -355,7 +377,7 @@ class DatasetController():
             labeling_definition = self.dbm_labeling.get_single(projectId, labeling["labelingId"])
             print(labeling_definition)
             labeling_name = labeling_definition["name"]
-            
+
             for label in labeling_definition["labels"]:
                 dataset_labels = filter(lambda x: x["type"] == label["_id"], labeling["labels"])
                 newLabelCol = "label_" + labeling_name + "_" + label["name"]
