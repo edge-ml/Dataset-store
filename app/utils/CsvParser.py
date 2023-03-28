@@ -1,6 +1,7 @@
 import numpy as np
 from enum import Enum
 import pandas as pd
+import re
 
 from app.utils.helpers import parseTime
 
@@ -64,6 +65,15 @@ class CsvParser():
         sensor_names = header[1:sensor_idx_until]
         label_names = header[sensor_idx_until:]
 
+        # remove 'sensor_' prefix
+        sensor_names = [s[7:] for s in sensor_names]
+        
+        # extract units at the end from square brackets example: sensor_accX[unit]
+        unit_pattern = r'\[([^\[\]]*)\]$'
+        units = [re.search(unit_pattern, s).group(1) if re.search(unit_pattern, s) else None for s in sensor_names]
+        
+        # remove unit suffix from sensor names
+        sensor_names = [re.sub(unit_pattern, '', s) for s in sensor_names]
         return time, sensor_data, label_data, sensor_names, label_names
 
     def _buffer_to_numpy(self, buf):
