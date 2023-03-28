@@ -2,8 +2,12 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
 from pydantic import BaseModel, ValidationError, validator, Field
-from typing import Dict, List
+from typing import Dict, List, Optional
 from app.utils.helpers import PyObjectId
+
+class SamplingRate(BaseModel):
+    mean: float
+    var: float
 
 class TimeSeries(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
@@ -11,6 +15,8 @@ class TimeSeries(BaseModel):
     end: int
     unit: str = Field(default="")
     name: str
+    samplingRate: Optional[SamplingRate]
+    length: Optional[int]
 
 
 class DatasetLabel(BaseModel):

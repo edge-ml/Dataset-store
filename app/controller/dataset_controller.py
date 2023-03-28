@@ -92,12 +92,17 @@ class DatasetController():
         datasetMeta["projectId"] = ObjectId(project)
         if user_id is not None:
             datasetMeta["userId"] = ObjectId(user_id)
-        newDatasetMeta = self.dbm.addDataset(datasetMeta)
+            newDatasetMeta = self.dbm.addDataset(datasetMeta)
         try:
-            for t, newt in zip(datasetMeta["timeSeries"], newDatasetMeta["timeSeries"]):
+            for i, (t, newt) in enumerate(zip(datasetMeta["timeSeries"], newDatasetMeta["timeSeries"])):
                 metaData, tsValues = self._splitMeta_Data(t)
                 binStore = BinaryStore(newt["_id"])
-                binStore.append(tsValues)
+                start, end, sampling_rate, length = binStore.append(tsValues)
+                newDatasetMeta["timeSeries"][i]["start"] = start
+                newDatasetMeta["timeSeries"][i]["end"] = end
+                newDatasetMeta["timeSeries"][i]["length"] = length
+                newDatasetMeta["timeSeries"][i]["samplingRate"] = sampling_rate
+            newDatasetMeta = self.dbm.updateDataset(newDatasetMeta["_id"], newDatasetMeta["projectId"], newDatasetMeta)
         except:
             self.dbm.deleteDatasetById(project, newDatasetMeta["_id"])
             raise TypeError()

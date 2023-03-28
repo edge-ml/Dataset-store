@@ -23,6 +23,7 @@ import asyncio
 import argparse
 from app.routers import router
 from fastapi.middleware.gzip import GZipMiddleware
+import traceback
 
 
 class DatasetStore(FastAPI):
@@ -60,6 +61,7 @@ async def value_error_exception_handler(request: Request, exc: ValueError):
 @app.exception_handler(TypeError)
 async def type_error_exception_handler(request: Request, exc: TypeError):
     print(exc)
+    print(traceback.format_exc())
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST, content={"message": "Invalid input"}
     )
@@ -77,7 +79,7 @@ async def shutdown():
 
 if __name__ == "__main__":
     if env == "dev":
-        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True, log_level="trace", ws="wsproto", ws_ping_interval=10)
+        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True)
     if env == "docker":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=20)
 
