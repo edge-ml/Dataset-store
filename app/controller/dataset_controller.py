@@ -411,33 +411,28 @@ class DatasetController():
             binStore.loadSeries()
             ts_data = binStore.getFull()
             df = pd.DataFrame(ts_data)
-            print(df.columns)
             if final_df is None:
                 final_df = df
             else:
                 final_df = pd.merge(final_df, df, how="outer", on='time')
             final_df.columns = [*final_df.columns[:-1], "sensor_" + ts["name"]]
 
-        print(final_df.dtypes)
-        final_df.set_index("time")
-
+        final_df.set_index("time", inplace=True)
+        
         # Add labelings
         for labeling in dataset["labelings"]:
-
             # Get labeling from db
             labeling_definition = self.dbm_labeling.get_single(projectId, labeling["labelingId"])
-            print(labeling_definition)
             labeling_name = labeling_definition["name"]
-
             for label in labeling_definition["labels"]:
-                dataset_labels = filter(lambda x: x["type"] == label["_id"], labeling["labels"])
+                dataset_labels = list(filter(lambda x: x["type"] == label["_id"], labeling["labels"]))
                 newLabelCol = "label_" + labeling_name + "_" + label["name"]
                 final_df[newLabelCol] = ""
                 for label in dataset_labels:
                     start = int(label["start"])
                     end = int(label["end"])
                     final_df.loc[start:end, newLabelCol] = "x"
-                    print(start, end)
+        
         textStream = StringIO()
-        final_df.to_csv(textStream, index=False)
+        final_df.to_csv(textStream, index=True)
         return textStream, fileName
