@@ -183,11 +183,61 @@ class DatasetController():
             '.csv') else file.filename
         content = await file.read()
         parser = CsvParser(content)
-        timestamps, sensor_data, label_data, sensor_names, label_names = parser.to_edge_ml_format()
-        
+        timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings = parser.to_edge_ml_format()
+
         if sensor_data is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
                                 detail="The file has no data")
+
+        # look up table to get id and labeling id it belongs from label name
+        label_id_labeling = {}
+        for labeling in labelings.keys():
+            # format labels for the current labeling in loop
+            labelsInDBFormat = [{
+                'name': label,
+                'color': "#%06x" % random.randint(0, 0xFFFFFF),
+                'isNewLabel': True
+            } for label in labelings[labeling]]
+
+            labelingInDB = createLabeling(project, {"name": labeling, "labels": labelsInDBFormat})
+            for label in labelingInDB['labels']:
+                label_name = label['name']
+                if label_name not in label_id_labeling:
+                    label_id_labeling[label_name] = {'labelingId': labelingInDB['_id'], '_id': label['_id']}
+        
+        labelingsInDatasetFormat = {}
+        for label_idx, data in enumerate(label_data):
+            idx = 0
+            assert len(data) == len(timestamps), 'Label column length does not match timestamp column length'
+            data_length = len(data)
+            # intervals for the current label
+            intervals = []
+            # labeling_label_list has the following format: labeling_label
+            # extract only label
+            label_name = labeling_label_list[label_idx].split('_')[1]
+            labelingId = label_id_labeling[label_name]['labelingId']
+            while idx < data_length:
+                if data[idx] == 'x':
+                    start = timestamps[idx]
+                    while idx < data_length and data[idx] == 'x':
+                        idx += 1
+                    end = timestamps[idx - 1]
+                    intervals.append((start, end))                    
+                idx += 1
+            if labelingId not in labelingsInDatasetFormat:
+                    labelingsInDatasetFormat[labelingId] = []
+            for start, end in intervals:
+                labelingsInDatasetFormat[labelingId].append({
+                    'type': label_id_labeling[label_name]['_id'],
+                    'start': start,
+                    'end': end,
+                })
+        
+        labelingsInDatasetFormat = [{
+            'labelingId': labelingId,
+            'labels': labelingsInDatasetFormat[labelingId]
+        } for labelingId in labelingsInDatasetFormat.keys()]
+
         dataset = {
             'name': name,
             'start': timestamps[0],
@@ -197,7 +247,8 @@ class DatasetController():
                 'start': timestamps[0],
                 'end': timestamps[-1],
                 'data': list(zip(timestamps, sensor_data[sensor_idx]))
-            } for sensor_idx, sensor in enumerate(sensor_names)]
+            } for sensor_idx, sensor in enumerate(sensor_names)],
+            'labelings': labelingsInDatasetFormat
         }
         self.addDataset(dataset, project=project, user_id=user_id)
 

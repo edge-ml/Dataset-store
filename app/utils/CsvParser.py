@@ -33,13 +33,14 @@ class CsvParser():
     def _calcTime(self, x):
         pass
 
+    # TODO: add robustness checks to detect erroneous csv data
     def to_edge_ml_format(self):
         line_data = self.arr.decode('utf-8').splitlines()
         str_data = [x.split(",") for x in line_data]
 
         if len(str_data) < 2:
             print("no data")
-            return None, None, None, None, None
+            return None, None, None, None, None, None
 
         data = np.array(str_data)
         header = data[0]
@@ -63,7 +64,7 @@ class CsvParser():
         label_data = sorted_data[0:, sensor_idx_until:].T
         
         sensor_names = header[1:sensor_idx_until]
-        label_names = header[sensor_idx_until:]
+        labeling_label_list = header[sensor_idx_until:]
 
         # remove 'sensor_' prefix
         sensor_names = [s[7:] for s in sensor_names]
@@ -74,7 +75,18 @@ class CsvParser():
         
         # remove unit suffix from sensor names
         sensor_names = [re.sub(unit_pattern, '', s) for s in sensor_names]
-        return time, sensor_data, label_data, sensor_names, label_names
+        
+        # remove 'label_' prefix
+        labeling_label_list = [l[6:] for l in labeling_label_list]
+        labelings = {}
+        
+        for labeling_label in labeling_label_list:
+            labeling, label = labeling_label.split('_')
+            if labeling not in labelings:
+                labelings[labeling] = []
+            labelings[labeling].append(label)
+        
+        return time, sensor_data, label_data, sensor_names, labeling_label_list, labelings
 
     def _buffer_to_numpy(self, buf):
         line_data = self.arr.decode('utf-8').splitlines()
@@ -93,9 +105,7 @@ class CsvParser():
 
     def _convert_standard(self):
         return self._buffer_to_numpy(self.arr)
-        
-
-
+    
     def to_edge_ml(self):
         if self.format is CSVFormat.EDGEML:
             pass
