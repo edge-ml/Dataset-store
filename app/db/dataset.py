@@ -69,9 +69,9 @@ class DatasetDBManager:
         return datasets
     
     def updateDataset(self, id, project_id, dataset):
-        print(dataset)
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
+        return dataset
 
     def deleteProject(self, project):
         self.ds_collection.delete_many({"_id": ObjectId(project)})

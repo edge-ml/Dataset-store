@@ -125,6 +125,9 @@ class DatasetController():
             binStore = BinaryStore(id)
             binStore.delete()
 
+    def updateDataset(self, id, projectId, dataset):
+        return self.dbm.updateDataset(id, projectId, dataset)
+
     def getDataSetByIdStartEnd(self, id, projectId, start, end, max_resolution):
         print("full")
         dataset = self.dbm.getDatasetById(id, project_id=projectId)
@@ -235,7 +238,7 @@ class DatasetController():
         
         labelingsInDatasetFormat = [{
             'labelingId': labelingId,
-            'labels': labelingsInDatasetFormat[labelingId]
+            'labels': labelingsInDatasetFormat[labelingId],
         } for labelingId in labelingsInDatasetFormat.keys()]
 
         dataset = {
@@ -250,7 +253,8 @@ class DatasetController():
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat
         }
-        self.addDataset(dataset, project=project, user_id=user_id)
+        metadata = self.addDataset(dataset, project=project, user_id=user_id)
+        return metadata
 
     def externalUpload(self, api_key, user_id, body):
         # Get labels from dataset
