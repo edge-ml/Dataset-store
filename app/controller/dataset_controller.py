@@ -425,12 +425,12 @@ class DatasetController():
             labeling_definition = self.dbm_labeling.get_single(projectId, labeling["labelingId"])
             labeling_name = labeling_definition["name"]
             for label in labeling_definition["labels"]:
-                dataset_labels = list(filter(lambda x: x["type"] == label["_id"], labeling["labels"]))
+                dataset_labels = filter(lambda x: x["type"] == label["_id"], labeling["labels"])
                 newLabelCol = "label_" + labeling_name + "_" + label["name"]
                 final_df[newLabelCol] = ""
-                for label in dataset_labels:
-                    start = int(label["start"])
-                    end = int(label["end"])
+                for dataset_label in dataset_labels:
+                    start = int(dataset_label["start"])
+                    end = int(dataset_label["end"])
                     final_df.loc[start:end, newLabelCol] = "x"
         
         textStream = StringIO()
