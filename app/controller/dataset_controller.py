@@ -186,7 +186,7 @@ class DatasetController():
             '.csv') else file.filename
         content = await file.read()
         parser = CsvParser(content)
-        timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings = parser.to_edge_ml_format()
+        timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format()
 
         if sensor_data is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
@@ -249,6 +249,7 @@ class DatasetController():
                 'name': sensor,
                 'start': timestamps[0],
                 'end': timestamps[-1],
+                'unit': units[sensor_idx],
                 'data': list(zip(timestamps, sensor_data[sensor_idx]))
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat

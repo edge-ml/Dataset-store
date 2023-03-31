@@ -40,7 +40,7 @@ class CsvParser():
 
         if len(str_data) < 2:
             print("no data")
-            return None, None, None, None, None, None
+            return None, None, None, None, None, None, None
 
         data = np.array(str_data)
         header = data[0]
@@ -86,7 +86,7 @@ class CsvParser():
                 labelings[labeling] = []
             labelings[labeling].append(label)
         
-        return time, sensor_data, label_data, sensor_names, labeling_label_list, labelings
+        return time, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units
 
     def _buffer_to_numpy(self, buf):
         line_data = self.arr.decode('utf-8').splitlines()
