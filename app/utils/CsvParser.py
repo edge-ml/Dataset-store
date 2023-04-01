@@ -71,7 +71,7 @@ class CsvParser():
         
         # extract units at the end from square brackets example: sensor_accX[unit]
         unit_pattern = r'\[([^\[\]]*)\]$'
-        units = [re.search(unit_pattern, s).group(1) if re.search(unit_pattern, s) else None for s in sensor_names]
+        units = [re.search(unit_pattern, s).group(1) if re.search(unit_pattern, s) else '' for s in sensor_names]
         
         # remove unit suffix from sensor names
         sensor_names = [re.sub(unit_pattern, '', s) for s in sensor_names]
