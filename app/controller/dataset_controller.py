@@ -359,6 +359,8 @@ class DatasetController():
             tsIds = []
             starts = []
             ends = []
+            sampling_rates =[]
+            lengths = []
             headers = []
             file_names = []
 
@@ -377,9 +379,11 @@ class DatasetController():
                         tsId = ObjectId()
                         tsIds.append(tsId)
                         binStore = BinaryStore(tsId)
-                        start, end = binStore._appendValues(time, d)
+                        start, end, sampling_rate, length = binStore._appendValues(time, d)
                         starts.append(start)
                         ends.append(end)
+                        sampling_rates.append(sampling_rate)
+                        lengths.append(length)
                         headers.append(h)
                         file_names.append(f_info.name)
             except Exception as e:
@@ -390,7 +394,7 @@ class DatasetController():
 
 
             dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
-            timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h} for s, e, tid, fName, h in zip(starts, ends, tsIds, file_names, headers)]
+            timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h, "samplingRate": s_rate, "length": l} for s, e, tid, fName, h, s_rate, l in zip(starts, ends, tsIds, file_names, headers, sampling_rates, lengths)]
             dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries,
             "labelings": dataset_labeling, "metaData": info.metaData}
             try:

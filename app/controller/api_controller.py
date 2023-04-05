@@ -25,8 +25,10 @@ def appendDataset(timeSeries, userId, projectId, dataset_id):
         for ts_name, ts_data in timeSeries.items():
             id = name_to_id[ts_name]
             binStore = BinaryStore(id)
-            start, end = binStore.append(ts_data)
+            start, end, sampling_rate, length  = binStore.append(ts_data)
             index = next((i for i, item in enumerate(dataset["timeSeries"]) if item["_id"] == id), -1)
+            dataset["timeSeries"][index]["length"] = length
+            dataset["timeSeries"][index]["samplingRate"] = sampling_rate
             dataset["timeSeries"][index]["start"] = start
             dataset["timeSeries"][index]["end"] = end
             newStart = min(newStart, start)
