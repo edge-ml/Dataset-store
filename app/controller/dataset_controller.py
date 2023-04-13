@@ -181,12 +181,12 @@ class DatasetController():
         self.dbm.updateDataset(id, project, dataset=dataset)
         return
 
-    async def CSVUpload(self, file: UploadFile, project: str, user_id: str):
-        name = file.filename[:-4] if file.filename.endswith(
-            '.csv') else file.filename
+    async def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str):
+        name = config['name'] if config['name'] else (
+            file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
         content = await file.read()
         parser = CsvParser(content)
-        timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format()
+        timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format(config)
 
         if sensor_data is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
