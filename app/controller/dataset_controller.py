@@ -25,7 +25,7 @@ class FileDescriptor(BaseModel):
     name: str
     size: int
     drop: List[str]
-    time: str
+    time: List[str]
 
 class CSVLabel(BaseModel):
     start: str
