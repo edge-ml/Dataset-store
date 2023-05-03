@@ -125,9 +125,17 @@ class CsvParser():
             return None, None, str_data[0]
 
         df = pd.DataFrame(str_data[1:], columns=str_data[0])
-        df[self.time_col] = df[self.time_col].apply(parseTime)
-        time_arr = df.loc[:, self.time_col].to_numpy().astype(np.uint64)
-        df = df.drop(self.drop_cols + [self.time_col], axis=1, errors="ignore")
+
+        selected_time = None
+        for t in self.time_col:
+            if t in df.columns:
+                selected_time = t
+        if selected_time == None:
+            raise Exception("No suitable time column has been found")
+
+        df[selected_time] = df[selected_time].apply(parseTime)
+        time_arr = df.loc[:, selected_time].to_numpy().astype(np.uint64)
+        df = df.drop(self.drop_cols + [selected_time], axis=1, errors="ignore")
         data_arr = df.to_numpy().T.astype(np.float32)
         print(data_arr[:, 0])
         header = list(df.columns)

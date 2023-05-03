@@ -90,9 +90,8 @@ class BinaryStore():
         self.data_arr = self.data_arr[inds]
         self.saveSeries()
         time_diff = np.diff(self.time_arr)
-        sampling_rate_mean = np.mean(time_diff)
-        sampling_rate_var = np.var(time_diff)
-        print(sampling_rate_mean, sampling_rate_var)
+        sampling_rate_mean = np.nan_to_num(np.mean(time_diff))
+        sampling_rate_var = np.nan_to_num(np.var(time_diff))
         if len(self.time_arr) == 0:
             return None, None, {"mean": 0, "var": 0}, 0
         return int(self.time_arr[0]), int(self.time_arr[-1]), {"mean": sampling_rate_mean, "var": sampling_rate_var}, len(self.time_arr) # start, end
