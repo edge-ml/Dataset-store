@@ -1,5 +1,6 @@
 from bson.objectid import ObjectId
 import numpy as np
+import random
 
 def custom_index(array, compare_function):
     for i, v in enumerate(array):
@@ -34,3 +35,9 @@ def parseTime(timestamp):
         return np.array(t_split[0]).astype(np.uint64)
     else:
         raise ValueError("Timestamp is invalid")
+    
+def random_hex_color():
+    # generate a random integer between 0 and 16777215 (FFFFFF in hexadecimal)
+    color = random.randint(0, 16777215)
+    # convert the integer to a 6-digit hexadecimal string and return it
+    return '#' + hex(color)[2:].upper().zfill(6)

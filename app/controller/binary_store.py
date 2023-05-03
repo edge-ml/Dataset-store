@@ -1,5 +1,6 @@
 # Consts
 import os
+import h5py
 from os.path import join
 import struct
 import numpy as np
@@ -9,16 +10,6 @@ import functools
 from app.internal.config import TSDATA
 
 DATA_PREFIX = TSDATA
-
-
-# @functools.lru_cache(maxsize=512)
-def _readSeries(path):
-    with open(path, "rb") as f:
-        len = struct.unpack("I", f.read(4))[0]
-        time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
-        data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
-        return time_arr, data_arr
-
 
 class BinaryStore():
 
@@ -30,16 +21,18 @@ class BinaryStore():
         if not os.path.exists(DATA_PREFIX):
             os.makedirs(DATA_PREFIX)
 
-        self._path = join(DATA_PREFIX, self._id + ".bin")
-    
+        self._path = join(DATA_PREFIX, self._id + ".hdf5")
+
+
     def loadSeries(self):
-        self.time_arr, self.data_arr = _readSeries(self._path)
+        with h5py.File(self._path, "r") as f:
+            self.time_arr = f["time"][:]
+            self.data_arr = f["data"][:]
 
     def saveSeries(self):
-        with open(join(DATA_PREFIX, self._id + ".bin"), "wb") as f:
-            f.write(struct.pack("I", len(self.time_arr)))
-            f.write(struct.pack("Q" * len(self.time_arr), *self.time_arr))
-            f.write(struct.pack("f" * len(self.data_arr), *self.data_arr))
+        with h5py.File(self._path, "w") as f:
+            f.create_dataset("time", data=self.time_arr, dtype=np.uint64)
+            f.create_dataset("data", data=self.data_arr, dtype=np.float32)
 
     def getPart(self, start_time, end_time, max_resolution=None):
         max_resolution = int(float(max_resolution))

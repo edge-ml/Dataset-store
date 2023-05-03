@@ -4,7 +4,7 @@ from fastapi.param_functions import Depends
 from app.controller.dataset_controller import DatasetController
 from app.utils.json_encoder import JSONEncoder
 from app.routers.dependencies import validateApiKey
-from typing import List, Dict
+from typing import List, Dict, Optional
 from pydantic import BaseModel, conlist
 from app.controller.api_controller import initDataset, appendDataset
 from typing import Union, Tuple
@@ -17,6 +17,10 @@ router = APIRouter()
 
 ctrl = DatasetController()
 
+class InitDatasetModalLabeling(BaseModel):
+    labelingName: str
+    labelName: str
+
 class InitDatasetModal(BaseModel):
     name: str
     timeSeries: List[str]
@@ -27,19 +31,16 @@ class TimeSeriesDataModel(BaseModel):
     name: str
     data: List[Tuple[int, float]]
 
+class IncrementUploadModal(BaseModel):
+    data: List[TimeSeriesDataModel]    
+    labeling: Optional[InitDatasetModalLabeling]
+
+
 @router.post("/csv")
 async def create_upload_files(files: List[UploadFile]):
     print("file upload")
     await ctrl.processFiles(files)
     return {"filenames": [file.filename for file in files]}
-
-# @router.post("/key/{api_key}")
-# async def externalUpload(api_key, body: Request, user_id=Depends(validateApiKey)):
-#     body = await body.json()
-#     print("body")
-#     print(body)
-#     res = ctrl.externalUpload(api_key, user_id, body)
-#     return Response(json.dumps(res, cls=JSONEncoder), media_type="application/json")
 
 
 @router.post("/dataset/init/{api_key}")
@@ -49,7 +50,7 @@ async def init_dataset(body:InitDatasetModal, apiData=Depends(validateApiKey)):
     return {"id": initDataset(body.name, body.timeSeries, body.metaData, userId, projectId)}
 
 @router.post("/dataset/append/{api_key}/{dataset_id}")
-async def append_dataset(dataset_id, body:List[TimeSeriesDataModel], apiData=Depends(validateApiKey)):
+async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends(validateApiKey)):
     try:
         with thread_safe(dataset_id):
             userId = apiData["userId"]
@@ -84,7 +85,6 @@ async def upload_ws(websocket: WebSocket , apiData=Depends(validateApiKey)):
 
 @router.post("/dataset/device/{api_key}")
 async def upload_files(json_data = Form(...), files: List[UploadFile] = File(...), apiData=Depends(validateApiKey)):
-
     fileInfo = json.loads(json_data)
     userId = apiData["userId"]
     projectId = apiData["projectId"]
