@@ -245,8 +245,6 @@ class DatasetController():
 
         dataset = {
             'name': name,
-            'start': timestamps[0],
-            'end': timestamps[-1],
             'timeSeries': [{
                 'name': sensor,
                 'start': timestamps[0],

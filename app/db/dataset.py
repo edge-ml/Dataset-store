@@ -34,8 +34,6 @@ class DatasetSchema(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
     projectId: PyObjectId
     name: str
-    start: int
-    end: int
     metaData: Dict[str, str] = Field(default={})
     timeSeries: List[TimeSeries]
     labelings: List[DatasetLabeling] = Field(default=[])
