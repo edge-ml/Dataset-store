@@ -25,7 +25,7 @@ class DatasetIdList(BaseModel):
     datasets: List[str]
 
 @router.post("/")
-async def get_multiple_csv_datast(body: DatasetIdList, project: str = Header(), user_data=Depends(validate_user)):
+async def get_multiple_csv_datast(body: DatasetIdList, project: str = Header(...), user_data=Depends(validate_user)):
     id = registerForDownload(project, body.datasets)
     return {"id": id}
 

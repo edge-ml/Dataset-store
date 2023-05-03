@@ -19,22 +19,19 @@ def appendDataset(timeSeries, userId, projectId, dataset_id):
     try:
         dataset = dbm.getDatasetById(dataset_id=dataset_id, project_id=projectId)
         name_to_id = {x["name"]: x["_id"] for x in dataset["timeSeries"]}
-        print(timeSeries)
-        newStart = dataset["start"]
-        newEnd = dataset["end"]
-        for ts_name, ts_data in timeSeries.items():
-            id = name_to_id[ts_name]
+        for ts in timeSeries:
+            id = name_to_id[ts.name]
             binStore = BinaryStore(id)
-            start, end, sampling_rate, length  = binStore.append(ts_data)
+            binStore.loadSeries()
+            start, end, sampling_rate, length  = binStore.append(ts.data)
             index = next((i for i, item in enumerate(dataset["timeSeries"]) if item["_id"] == id), -1)
             dataset["timeSeries"][index]["length"] = length
             dataset["timeSeries"][index]["samplingRate"] = sampling_rate
             dataset["timeSeries"][index]["start"] = start
             dataset["timeSeries"][index]["end"] = end
-            newStart = min(newStart, start)
-            newEnd = max(newEnd, end)
-        dataset["start"] = newStart
-        dataset["end"] = newEnd
+            dataset["start"] = min(dataset["start"], start)
+            dataset["end"] = max(dataset["end"], end)
+        print("Dataset start: ", dataset["start"])
         dbm.updateDataset(dataset["_id"], projectId, dataset)
     except Exception as e:
         print(e)

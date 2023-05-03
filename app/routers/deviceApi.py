@@ -7,8 +7,9 @@ from app.routers.dependencies import validateApiKey
 from typing import List, Dict
 from pydantic import BaseModel, conlist
 from app.controller.api_controller import initDataset, appendDataset
-from typing import Union
+from typing import Union, Tuple
 import traceback
+from app.utils.InMemoryLockManager import thread_safe
 
 import json
 
@@ -24,7 +25,7 @@ class InitDatasetModal(BaseModel):
 
 class TimeSeriesDataModel(BaseModel):
     name: str
-    data: List[conlist(Union[int, float], max_items=2, min_items=2)]
+    data: List[Tuple[int, float]]
 
 @router.post("/csv")
 async def create_upload_files(files: List[UploadFile]):
@@ -47,11 +48,17 @@ async def init_dataset(body:InitDatasetModal, apiData=Depends(validateApiKey)):
     projectId = apiData["projectId"]
     return {"id": initDataset(body.name, body.timeSeries, body.metaData, userId, projectId)}
 
-@router.post("/dataset/append/{api_key}")
-async def append_dataset(body:TimeSeriesDataModel, apiData=Depends(validateApiKey)):
-    userId = apiData["userId"]
-    projectId = apiData["projectId"]
-    appendDataset(body.name, body.timeSeries, userId, projectId)
+@router.post("/dataset/append/{api_key}/{dataset_id}")
+async def append_dataset(dataset_id, body:List[TimeSeriesDataModel], apiData=Depends(validateApiKey)):
+    try:
+        with thread_safe(dataset_id):
+            userId = apiData["userId"]
+            projectId = apiData["projectId"]
+            appendDataset(body, userId, projectId, dataset_id)
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
+
 
 
 @router.websocket("/csvws/{api_key}")
