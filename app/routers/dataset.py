@@ -35,7 +35,7 @@ async def createDataset(CSVFile: UploadFile = File(...), CSVConfig: str = Form(.
     metadata = None
     config = json.loads(CSVConfig)
     try:
-        metadata = await ctrl.CSVUpload(CSVFile, config, project, user_id)
+        metadata = ctrl.CSVUpload(CSVFile, config, project, user_id)
     except Exception as exp:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
     return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")

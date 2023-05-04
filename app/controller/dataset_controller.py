@@ -96,6 +96,8 @@ class DatasetController():
         try:
             for i, (t, newt) in enumerate(zip(datasetMeta["timeSeries"], newDatasetMeta["timeSeries"])):
                 metaData, tsValues = self._splitMeta_Data(t)
+                if isinstance(tsValues, zip):
+                    tsValues = list(tsValues)
                 binStore = BinaryStore(newt["_id"])
                 start, end, sampling_rate, length = binStore.append(tsValues)
                 newDatasetMeta["timeSeries"][i]["start"] = start
@@ -183,11 +185,11 @@ class DatasetController():
         self.dbm.updateDataset(id, project, dataset=dataset)
         return
 
-    async def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str):
+    def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str):
         name = config['name'] if config['name'] else (
             file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
-        content = await file.read()
-        parser = CsvParser(content)
+        df = pd.read_csv(file.file)
+        parser = CsvParser(df=df)
         timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format(config)
 
         if sensor_data is None:
@@ -245,14 +247,12 @@ class DatasetController():
 
         dataset = {
             'name': name,
-            'start': timestamps[0],
-            'end': timestamps[-1],
             'timeSeries': [{
                 'name': sensor,
                 'start': timestamps[0],
                 'end': timestamps[-1],
                 'unit': units[sensor_idx],
-                'data': list(zip(timestamps, sensor_data[sensor_idx]))
+                'data': zip(timestamps, sensor_data.iloc[:, sensor_idx]) # TODO: remove list to increase performance
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat
         }
