@@ -11,8 +11,8 @@ class SamplingRate(BaseModel):
 
 class TimeSeries(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    start: int
-    end: int
+    start: Optional[int]
+    end: Optional[int]
     unit: str = Field(default="")
     name: str
     samplingRate: Optional[SamplingRate]

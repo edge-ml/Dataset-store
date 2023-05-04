@@ -103,9 +103,9 @@ class DatasetController():
                 newDatasetMeta["timeSeries"][i]["length"] = length
                 newDatasetMeta["timeSeries"][i]["samplingRate"] = sampling_rate
             newDatasetMeta = self.dbm.updateDataset(newDatasetMeta["_id"], newDatasetMeta["projectId"], newDatasetMeta)
-        except:
+        except Exception as e:
             self.dbm.deleteDatasetById(project, newDatasetMeta["_id"])
-            raise TypeError()
+            raise e
         return newDatasetMeta
 
     def _convertTimeSeriesObjectIdToStr(self, ts_array):
@@ -167,14 +167,16 @@ class DatasetController():
         for ts in body:
             binStore = BinaryStore(ts["_id"])
             binStore.loadSeries()
-            tmpStart, tmpEnd = binStore.append(ts["data"])
+            tmpStart, tmpEnd, sampling_rate, length  = binStore.append(ts["data"])
             newStart = min(newStart, tmpStart)
             newEnd = max(newEnd, tmpEnd)
             idx = custom_index(dataset["timeSeries"], lambda x: ObjectId(x["_id"]) == ObjectId(ts["_id"]))
-            oldStart = int(dataset["timeSeries"][idx]["start"])
-            oldEnd = int(dataset["timeSeries"][idx]["end"])
+            oldStart = dataset["timeSeries"][idx]["start"]
+            oldEnd = dataset["timeSeries"][idx]["end"]
             dataset["timeSeries"][idx]["start"] = min(oldStart, tmpStart) if oldStart is not None else tmpStart
             dataset["timeSeries"][idx]["end"] = max(oldEnd, tmpEnd) if oldEnd is not None else tmpEnd
+            dataset["timeSeries"][idx]["length"] = length
+            dataset["timeSeries"][idx]["samplingRate"] = sampling_rate
 
         dataset["start"] = int(newStart)
         dataset["end"] = int(newEnd)
