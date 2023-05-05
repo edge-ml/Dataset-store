@@ -164,14 +164,10 @@ class DatasetController():
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
 
 
-        newStart = dataset["start"]
-        newEnd = dataset["end"]
         for ts in body:
             binStore = BinaryStore(ts["_id"])
             binStore.loadSeries()
             tmpStart, tmpEnd, sampling_rate, length  = binStore.append(ts["data"])
-            newStart = min(newStart, tmpStart)
-            newEnd = max(newEnd, tmpEnd)
             idx = custom_index(dataset["timeSeries"], lambda x: ObjectId(x["_id"]) == ObjectId(ts["_id"]))
             oldStart = dataset["timeSeries"][idx]["start"]
             oldEnd = dataset["timeSeries"][idx]["end"]
@@ -179,9 +175,6 @@ class DatasetController():
             dataset["timeSeries"][idx]["end"] = max(oldEnd, tmpEnd) if oldEnd is not None else tmpEnd
             dataset["timeSeries"][idx]["length"] = length
             dataset["timeSeries"][idx]["samplingRate"] = sampling_rate
-
-        dataset["start"] = int(newStart)
-        dataset["end"] = int(newEnd)
         self.dbm.updateDataset(id, project, dataset=dataset)
         return
 
