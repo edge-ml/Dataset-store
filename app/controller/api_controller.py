@@ -25,10 +25,6 @@ def appendDataset(uploadData, userId, projectId, dataset_id):
         labeling = uploadData.labeling
         timeSeries = uploadData.data
         # Create the labeling
-        if labeling:
-            createdLabeling = createLabeling(projectId, {"name": labeling.labelingName, "labels": [{"name": labeling.labelName, "color": random_hex_color()}]})
-            labelType = [x for x in createdLabeling["labels"] if x["name"] == labeling.labelName][0]["_id"]
-
         dataset = dbm.getDatasetById(dataset_id=dataset_id, project_id=projectId)
         name_to_id = {x["name"]: x["_id"] for x in dataset["timeSeries"]}
         for ts in timeSeries:
@@ -41,10 +37,13 @@ def appendDataset(uploadData, userId, projectId, dataset_id):
             dataset["timeSeries"][index]["samplingRate"] = sampling_rate
             dataset["timeSeries"][index]["start"] = start
             dataset["timeSeries"][index]["end"] = end
-            dataset["start"] = min(dataset["start"], start)
-            dataset["end"] = max(dataset["end"], end)
         dbm.updateDataset(dataset["_id"], projectId, dataset)
-        createLabel(dataset_id, projectId, createdLabeling["_id"], {"start": dataset["start"], "end": dataset["end"], "type": ObjectId(labelType)})
+        tmpStart = min(x["start"] for x in dataset["timeSeries"])
+        tmpEnd = min(x["end"] for x in dataset["timeSeries"])
+        if labeling:
+            createdLabeling = createLabeling(projectId, {"name": labeling.labelingName, "labels": [{"name": labeling.labelName, "color": random_hex_color()}]})
+            labelType = [x for x in createdLabeling["labels"] if x["name"] == labeling.labelName][0]["_id"]
+            createLabel(dataset_id, projectId, createdLabeling["_id"], {"start": tmpStart, "end": tmpEnd, "type": ObjectId(labelType)})
     except Exception as e:
         print(e)
         print(traceback.format_exc())
