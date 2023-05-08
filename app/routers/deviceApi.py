@@ -1,13 +1,12 @@
-from fastapi import APIRouter, Request, Header, Response, UploadFile, File, WebSocket, WebSocketDisconnect, Form
+from fastapi import APIRouter, UploadFile, File, Form
 from fastapi.param_functions import Depends
 
 from app.controller.dataset_controller import DatasetController
-from app.utils.json_encoder import JSONEncoder
 from app.routers.dependencies import validateApiKey
 from typing import List, Dict, Optional
-from pydantic import BaseModel, conlist
+from pydantic import BaseModel
 from app.controller.api_controller import initDataset, appendDataset
-from typing import Union, Tuple
+from typing import Tuple
 import traceback
 from app.utils.InMemoryLockManager import thread_safe
 
@@ -36,13 +35,14 @@ class IncrementUploadModal(BaseModel):
     labeling: Optional[InitDatasetModalLabeling]
 
 
-@router.post("/csv")
-async def create_upload_files(files: List[UploadFile]):
-    print("file upload")
-    await ctrl.processFiles(files)
-    return {"filenames": [file.filename for file in files]}
+# @router.post("/csv")
+# async def create_upload_files(files: List[UploadFile]):
+#     print("file upload")
+#     await ctrl.processFiles(files)
+#     return {"filenames": [file.filename for file in files]}
 
 
+# Upload datasets in increments
 @router.post("/dataset/init/{api_key}")
 async def init_dataset(body:InitDatasetModal, apiData=Depends(validateApiKey)):
     userId = apiData["userId"]
@@ -62,27 +62,29 @@ async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends
 
 
 
-@router.websocket("/csvws/{api_key}")
-async def upload_ws(websocket: WebSocket , apiData=Depends(validateApiKey)):
-    userId = apiData["userId"]
-    projectId = apiData["projectId"]
-    print(userId, projectId)
-    try:
-        await websocket.accept()
-        command = await websocket.receive_text()
-        print(command)
-        if command == "upload":
-            await ctrl.uploadDatasetDevice(websocket, projectId, userId)
-        print("Closing websocket")
-        await websocket.close()
+# @router.websocket("/csvws/{api_key}")
+# async def upload_ws(websocket: WebSocket , apiData=Depends(validateApiKey)):
+#     userId = apiData["userId"]
+#     projectId = apiData["projectId"]
+#     print(userId, projectId)
+#     try:
+#         await websocket.accept()
+#         command = await websocket.receive_text()
+#         print(command)
+#         if command == "upload":
+#             await ctrl.uploadDatasetDevice(websocket, projectId, userId)
+#         print("Closing websocket")
+#         await websocket.close()
                     
-    except WebSocketDisconnect:
-        print("Websocket disconnected")
+#     except WebSocketDisconnect:
+#         print("Websocket disconnected")
     
-    except Exception as e:
-        print(e)
-        print(traceback.format_exc())
+#     except Exception as e:
+#         print(e)
+#         print(traceback.format_exc())
 
+
+# Upload CSV-Files
 @router.post("/dataset/device/{api_key}")
 async def upload_files(json_data = Form(...), files: List[UploadFile] = File(...), apiData=Depends(validateApiKey)):
     fileInfo = json.loads(json_data)
