@@ -44,13 +44,13 @@ class IncrementUploadModal(BaseModel):
 
 # Upload datasets in increments
 @router.post("/dataset/init/{api_key}")
-async def init_dataset(body:InitDatasetModal, apiData=Depends(validateApiKey)):
+async def init_dataset(body: InitDatasetModal, apiData=Depends(validateApiKey('write'))):
     userId = apiData["userId"]
     projectId = apiData["projectId"]
     return {"id": initDataset(body.name, body.timeSeries, body.metaData, userId, projectId)}
 
 @router.post("/dataset/append/{api_key}/{dataset_id}")
-async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends(validateApiKey)):
+async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends(validateApiKey('write'))):
     try:
         with thread_safe(dataset_id):
             userId = apiData["userId"]
@@ -86,7 +86,7 @@ async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends
 
 # Upload CSV-Files
 @router.post("/dataset/device/{api_key}")
-async def upload_files(json_data = Form(...), files: List[UploadFile] = File(...), apiData=Depends(validateApiKey)):
+async def upload_files(json_data = Form(...), files: List[UploadFile] = File(...), apiData=Depends(validateApiKey('write'))):
     fileInfo = json.loads(json_data)
     userId = apiData["userId"]
     projectId = apiData["projectId"]
