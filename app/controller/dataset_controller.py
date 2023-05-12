@@ -117,9 +117,17 @@ class DatasetController():
             res.append(t)
         return res
 
-    def getDatasetInProject(self, projectId):
+    def getDatasetInProject(self, projectId, includeTimeseriesData=False):
         datasets = self.dbm.getDatasetsInProjet(projectId)
-        return list(datasets)
+        datasets = list(datasets)
+        if not includeTimeseriesData:
+            return datasets
+        
+        datasets_with_timeseries = []
+        for dataset in datasets:
+            ds = self.getDatasetById(dataset['_id'], projectId, False)
+            datasets_with_timeseries.append(ds)
+        return datasets_with_timeseries
 
     def deleteDataset(self, id, projectId):
         ts_ids = self.dbm.deleteDatasetById(projectId, id)

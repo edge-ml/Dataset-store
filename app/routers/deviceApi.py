@@ -1,6 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Response
 from fastapi.param_functions import Depends
 
+from app.utils.json_encoder import JSONEncoder
 from app.controller.dataset_controller import DatasetController
 from app.routers.dependencies import validateApiKey
 from typing import List, Dict, Optional
@@ -91,3 +92,9 @@ async def upload_files(json_data = Form(...), files: List[UploadFile] = File(...
     userId = apiData["userId"]
     projectId = apiData["projectId"]
     await ctrl.uploadDatasetDevice(fileInfo, files, projectId, userId)
+    
+@router.get("/datasets/{api_key}")
+async def get_datasets(includeTimeseriesData: bool, apiData=Depends(validateApiKey('read'))):
+    projectId = apiData["projectId"]
+    datasets = ctrl.getDatasetInProject(projectId, includeTimeseriesData=includeTimeseriesData)
+    return Response(json.dumps(datasets, cls=JSONEncoder), media_type="application/json")
