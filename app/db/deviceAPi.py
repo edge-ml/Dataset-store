@@ -14,5 +14,12 @@ class DeviceApiManager:
         self.col = self.db[DEVICE_API_COLLNAME]
 
     def get(self, apiKey):
-        res = self.col.find_one({"deviceApiKey": apiKey})
-        return {"userId" : res["userId"], "projectId": res["projectId"]}
+        access_type = "read"
+        res = self.col.find_one({"readApiKey": apiKey})
+        if res is None:
+            res = self.col.find_one({"writeApiKey": apiKey})
+            access_type = "write"
+        if res is None:
+            return None
+        
+        return {"userId" : res["userId"], "projectId": res["projectId"], "access_type": access_type}

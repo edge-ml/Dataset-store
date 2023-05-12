@@ -34,8 +34,14 @@ async def validate_user(Authorization: str = Header(...), project_id=Depends(ext
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Token expired")
     
 
-async def validateApiKey(api_key):
-    res = deviceApi_dbm.get(api_key)
-    if res is None:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
-    return {"projectId": res["projectId"], "userId": res["userId"]}
+class validateApiKey:
+    def __init__(self, access_type):
+        self.access_type = access_type
+    
+    def __call__(self, api_key):
+        res = deviceApi_dbm.get(api_key)
+        if res is None:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+        if res['access_type'] != self.access_type:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=f"Used Api Key does not grant {self.access_type} access")
+        return {"projectId": res["projectId"], "userId": res["userId"]}
