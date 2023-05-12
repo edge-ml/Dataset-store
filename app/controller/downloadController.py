@@ -8,7 +8,8 @@ from app.controller.dataset_controller import DatasetController
 import traceback
 import time
 from fastapi import HTTPException
-
+import tempfile
+import os
 
 downloadData = {}
 ctrl = DatasetController()
@@ -20,6 +21,9 @@ def delete_old_items():
     for key, value in downloadData.items():
         if current_time - value['timestamp'] > 3600:  # 1 hour = 3600 seconds
             keys_to_delete.append(key)
+            # Delete the temporary file if it exists
+            if 'data' in value and isinstance(value['data'], str) and os.path.exists(value['data']):
+                os.remove(value['data'])
     for key in keys_to_delete:
         del downloadData[key]
 
@@ -51,30 +55,32 @@ def registerForDownload(project, datasets, background_tasks):
 def download(downloadId, datasets, project):
     fileNameCtr = {}
     if len(datasets) > 1:
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "a",
-                    zipfile.ZIP_DEFLATED, False) as file:
-            for id in datasets:
-                fileCSV, fileName = ctrl.getCSV(project, id)
-                if fileName in fileNameCtr:
-                    oldName = fileName
-                    fileName = fileName + "_" + str(fileNameCtr[fileName])
-                    fileNameCtr[oldName] = fileNameCtr[oldName] + 1
-                else:
-                    fileNameCtr[fileName] = 1
-                file.writestr(fileName, fileCSV.getvalue())        
-        downloadData[downloadId]["status"] = 100
-        downloadData[downloadId]["data"] = zip_buffer
-        return file
+        # Create a temporary file
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            with zipfile.ZipFile(temp_file, "a", zipfile.ZIP_DEFLATED, False) as file:
+                for id in datasets:
+                    fileCSV, fileName = ctrl.getCSV(project, id)
+                    if fileName in fileNameCtr:
+                        oldName = fileName
+                        fileName = fileName + "_" + str(fileNameCtr[fileName])
+                        fileNameCtr[oldName] = fileNameCtr[oldName] + 1
+                    else:
+                        fileNameCtr[fileName] = 1
+                    file.writestr(fileName, fileCSV.getvalue())   
+            # Store the temporary file in downloadData
+            downloadData[downloadId]["status"] = 100
+            downloadData[downloadId]["data"] = temp_file.name
     else:
         file, fileName = ctrl.getCSV(project, datasets[0])
+        # Store the file in downloadData
         downloadData[downloadId]["status"] = 100
         downloadData[downloadId]["data"] = file
         downloadData[downloadId]["fileName"] = fileName
-        return file
     
-from fastapi import HTTPException
+    return file
 
+
+@app.get("/status/{id}")
 async def get_status(id):
     try:
         print([k for k, x in downloadData.items()])
@@ -83,18 +89,26 @@ async def get_status(id):
     except KeyError:
         raise HTTPException(status_code=404, detail="Download-id not valid")
 
-    
 
+@app.get("/download/{id}")
 async def get_download_data(id):
     if downloadData[id]["status"] < 100:
         raise Exception("File not ready yet")
+
     data = downloadData[id]["data"]
+
     if downloadData[id]["type"] == "zip":
-        response = StreamingResponse(iter([data.getvalue()]), media_type="application/zip")
-        response.headers["Content-Disposition"] = f"attachment; filename=all.zip"
-        return response
+        # Open the temporary file as a binary file for reading
+        with open(data, "rb") as file:
+            # Create a StreamingResponse with the file content
+            response = StreamingResponse(iter([file.read()]), media_type="application/zip")
+            response.headers["Content-Disposition"] = "attachment; filename=all.zip"
+            return response
     else:
-        fileName = downloadData[id]["fileName"]
-        response = StreamingResponse(iter([data.getvalue()]), media_type="text/csv")
-        response.headers["Content-Disposition"] = f"attachment; filename={fileName}.csv"
-        return response
+        # Open the file as a binary file for reading
+        with open(data, "rb") as file:
+            fileName = downloadData[id]["fileName"]
+            # Create a StreamingResponse with the file content
+            response = StreamingResponse(iter([file.read()]), media_type="text/csv")
+            response.headers["Content-Disposition"] = f"attachment; filename={fileName}.csv"
+            return response
