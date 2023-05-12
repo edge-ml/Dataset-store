@@ -123,9 +123,21 @@ class DatasetController():
         if not includeTimeseriesData:
             return datasets
         
+        labelings = self.dbm_labeling.get(projectId)
+        labeling_mapping = {entry['_id']: entry['name'] for entry in labelings}
+        label_mapping = {}
+        for entry in labelings:
+            for label in entry['labels']:
+                label_mapping[label['_id']] = label['name']
         datasets_with_timeseries = []
         for dataset in datasets:
             ds = self.getDatasetById(dataset['_id'], projectId, False)
+            ds['labelings'] = [{'labeling': labeling_mapping[labeling['labelingId']], 
+                    'labels': [{'start': label['start'], 
+                                'end': label['end'], 
+                                'label': label_mapping[label['type']]}
+                               for label in labeling['labels']]}
+                   for labeling in ds['labelings']]
             datasets_with_timeseries.append(ds)
         return datasets_with_timeseries
 
