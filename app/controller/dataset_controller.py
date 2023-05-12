@@ -405,7 +405,7 @@ class DatasetController():
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-    async def getCSV(self, projectId, dataset_id):
+    def getCSV(self, projectId, dataset_id):
         dataset = self.dbm.getDatasetById(dataset_id, projectId)
         fileName = dataset["name"]
         timeSeries = dataset["timeSeries"]

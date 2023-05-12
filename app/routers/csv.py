@@ -3,6 +3,7 @@ from fastapi.param_functions import Depends
 from app.utils.json_encoder import JSONEncoder
 from app.routers.dependencies import validate_user
 from fastapi.responses import StreamingResponse, FileResponse
+from fastapi import BackgroundTasks
 import random
 import collections.abc
 from pydantic import BaseModel
@@ -11,7 +12,7 @@ import json
 import orjson
 import io
 import zipfile
-from app.controller.downloadController import registerForDownload, download
+from app.controller.downloadController import registerForDownload, download, get_status, get_download_data
 
 requests = {}
 
@@ -25,10 +26,14 @@ class DatasetIdList(BaseModel):
     datasets: List[str]
 
 @router.post("/")
-async def get_multiple_csv_datast(body: DatasetIdList, project: str = Header(...), user_data=Depends(validate_user)):
-    id = registerForDownload(project, body.datasets)
+async def get_multiple_csv_datast(body: DatasetIdList, background_tasks: BackgroundTasks, project: str = Header(...), user_data=Depends(validate_user)):
+    id = registerForDownload(project, body.datasets, background_tasks)
     return {"id": id}
 
 @router.get("/download/{id}")
 async def download_csv(id):
-    return await download(id)
+    return await get_download_data(id)
+
+@router.get("/status/{id}")
+async def download_csv(id, user_data=Depends(validate_user)):
+    return await get_status(id)
