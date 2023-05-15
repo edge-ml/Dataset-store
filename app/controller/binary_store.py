@@ -5,8 +5,10 @@ import struct
 import numpy as np
 from scipy.signal import resample
 import lttbc
+import h5py
 import functools
 from app.internal.config import TSDATA
+import tempfile
 
 DATA_PREFIX = TSDATA
 
@@ -34,6 +36,14 @@ class BinaryStore():
     
     def loadSeries(self):
         self.time_arr, self.data_arr = _readSeries(self._path)
+
+    def getHdf5Stream(self):
+        self.loadSeries()
+        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+            with h5py.File(tmp_file.name, "w") as hf:
+                hf.create_dataset("time", data=self.time_arr)
+                hf.create_dataset("data", data=self.data_arr)
+            return tmp_file.name
 
     def saveSeries(self):
         with open(join(DATA_PREFIX, self._id + ".bin"), "wb") as f:

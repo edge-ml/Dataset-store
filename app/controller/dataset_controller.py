@@ -141,6 +141,14 @@ class DatasetController():
             datasets_with_timeseries.append(ds)
         return datasets_with_timeseries
 
+    def getTimeSeriesData(self, projectId, datasetId, timeSeriesId):
+        dataset = self.dbm.getDatasetById(datasetId, projectId)
+        
+        binStore = BinaryStore(timeSeriesId)
+        return binStore.getHdf5Stream()
+
+
+
     def deleteDataset(self, id, projectId):
         ts_ids = self.dbm.deleteDatasetById(projectId, id)
         for id in ts_ids:
