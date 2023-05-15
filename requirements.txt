@@ -13,3 +13,4 @@ aio-pika
 python-multipart
 pandas
 websockets
+h5py
