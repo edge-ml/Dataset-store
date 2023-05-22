@@ -33,6 +33,7 @@ async def createDatasetLabel(id, labelingId, body: Request, project: str = Heade
 async def changeDatasetLabel(dataset_id, labeling_id, label_id, body: DatasetLabel, project: str = Header(...), user_data=Depends(validate_user)):
     body = body.dict(by_alias=True)
     updateLabel(project, dataset_id, labeling_id, label_id, body)
+        
 
 @router.delete("/{dataset_id}/{labeling_id}/{label_id}")
 async def deleteDatasetLabel(dataset_id, labeling_id, label_id, project: str = Header(...), user_data=Depends(validate_user)):
