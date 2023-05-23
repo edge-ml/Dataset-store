@@ -12,7 +12,8 @@ import json
 import orjson
 import io
 import zipfile
-from app.controller.downloadController import registerForDownload, download, get_status, get_download_data
+from app.controller.downloadController import registerForDownloadDataset, get_status, get_download_data, cancel_download, registerForDownloadProject
+from app.utils.helpers import PyObjectId
 
 requests = {}
 
@@ -22,18 +23,27 @@ from app.routers.schema import DatasetSchema
 router = APIRouter()
 ctrl = DatasetController()
 
-class DatasetIdList(BaseModel):
-    datasets: List[str]
-
-@router.post("/")
-async def get_multiple_csv_datast(body: DatasetIdList, background_tasks: BackgroundTasks, project: str = Header(...), user_data=Depends(validate_user)):
-    id = registerForDownload(project, body.datasets, background_tasks)
+@router.post("/dataset/{dataset_id}")
+async def get_multiple_csv_datast(dataset_id, background_tasks: BackgroundTasks, project: str = Header(...), user_data=Depends(validate_user)):
+    id = registerForDownloadDataset(project, dataset_id, user_data[0], background_tasks)
     return {"id": id}
 
-@router.get("/download/{id}")
+@router.post("/project")
+async def download_project(background_tasks: BackgroundTasks, project: PyObjectId = Header(...), user_data=Depends(validate_user)):
+    id = registerForDownloadProject(project, user_data[0], background_tasks)
+    return {"id": id}
+
+@router.get("/status/")
+async def download_csv(user_data=Depends(validate_user)):
+    res =  await get_status(user_data[0])
+    res_dict = [x.dict() for x in res]
+    return Response(json.dumps(res_dict, cls=JSONEncoder, default=str), media_type="application/json")
+
+@router.delete("/{downloadId}")
+async def del_download(downloadId, user_data=Depends(validate_user)):
+    await cancel_download(downloadId)
+    return Response(status_code=200)
+
+@router.get("/{id}")
 async def download_csv(id):
     return await get_download_data(id)
-
-@router.get("/status/{id}")
-async def download_csv(id, user_data=Depends(validate_user)):
-    return await get_status(id)

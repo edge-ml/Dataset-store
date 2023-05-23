@@ -5,7 +5,7 @@ router = APIRouter()
 
 router.include_router(
     csv.router,
-    prefix="/datasets/csv"
+    prefix="/download"
 )
 
 router.include_router(

@@ -12,7 +12,6 @@ if env == "docker":
     loadConfig("docker")
     print("load docker")
 from app.internal.config import PROJECT_DBNAME
-print("project: ", PROJECT_DBNAME)
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware

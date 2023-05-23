@@ -43,6 +43,7 @@ class BinaryStore():
             with h5py.File(tmp_file.name, "w") as hf:
                 hf.create_dataset("time", data=self.time_arr)
                 hf.create_dataset("data", data=self.data_arr)
+                print(self.data_arr)
             return tmp_file.name
 
     def saveSeries(self):
