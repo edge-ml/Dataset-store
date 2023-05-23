@@ -25,13 +25,13 @@ ctrl = DatasetController()
 
 @router.post("/dataset/{dataset_id}")
 async def get_multiple_csv_datast(dataset_id, background_tasks: BackgroundTasks, project: str = Header(...), user_data=Depends(validate_user)):
-    id = registerForDownloadDataset(project, dataset_id, user_data[0], background_tasks)
-    return {"id": id}
+    data = registerForDownloadDataset(project, dataset_id, user_data[0], background_tasks)
+    return Response(json.dumps(data, cls=JSONEncoder, default=str), media_type="application/json")
 
 @router.post("/project")
 async def download_project(background_tasks: BackgroundTasks, project: PyObjectId = Header(...), user_data=Depends(validate_user)):
-    id = registerForDownloadProject(project, user_data[0], background_tasks)
-    return {"id": id}
+    data = registerForDownloadProject(project, user_data[0], background_tasks)
+    return Response(json.dumps(data, cls=JSONEncoder, default=str), media_type="application/json")
 
 @router.get("/status/")
 async def download_csv(user_data=Depends(validate_user)):

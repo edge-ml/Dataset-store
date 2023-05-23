@@ -54,7 +54,7 @@ def registerForDownloadDataset(projectId, dataset_id, userId, background_tasks):
     data = DBEntryDataset(downloadId=id, projectId=projectId, userId=userId, projectName=project["name"], datasetName=dataset["name"])
     db.add(data)
     background_tasks.add_task(downloadDataset, id, projectId, dataset["_id"])
-    return id
+    return data.dict()
 
 def registerForDownloadProject(projectId: PyObjectId, userId: PyObjectId, background_tasks):
     id = "%06x" % random.randint(0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
@@ -63,7 +63,7 @@ def registerForDownloadProject(projectId: PyObjectId, userId: PyObjectId, backgr
     data = DBEntryProject(downloadId=id, projectId=projectId, userId=userId, projectName=project["name"])
     db.add(data)
     background_tasks.add_task(downloadProject, id, projectId)
-    return id
+    return data.dict()
 
 
 def downloadProject(downloadId, project):
@@ -77,11 +77,11 @@ def downloadProject(downloadId, project):
                 fileCSV, fileName = ctrl.getCSV(project, id)
                 if fileName in fileNameCtr:
                     oldName = fileName
-                    fileName = fileName + "_" + str(fileNameCtr[fileName]) + ".csv"
+                    fileName = fileName + "_" + str(fileNameCtr[fileName])
                     fileNameCtr[oldName] = fileNameCtr[oldName] + 1
                 else:
                     fileNameCtr[fileName] = 1
-                file.writestr(fileName, fileCSV.getvalue())   
+                file.writestr(fileName + ".csv", fileCSV.getvalue())   
         # Store the temporary file in downloadData
         db.update(download_id=downloadId, status=100, filePath=temp_file.name)
 
