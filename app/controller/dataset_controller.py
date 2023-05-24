@@ -210,6 +210,7 @@ class DatasetController():
         name = config['name'] if config['name'] else (
             file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
         df = pd.read_csv(file.file)
+        df.columns = df.columns.str.strip()
         parser = CsvParser(df=df)
         timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format(config)
 
