@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, UploadFile, File, Form, Response
+from fastapi import APIRouter, UploadFile, File, Form, Response, BackgroundTasks
 from starlette.background import BackgroundTask
 from fastapi.param_functions import Depends
 from fastapi.responses import FileResponse
@@ -13,6 +13,7 @@ from app.controller.api_controller import initDataset, appendDataset
 from typing import Tuple
 import traceback
 from app.utils.InMemoryLockManager import thread_safe
+from app.controller.csv_uploadController import registerDownload, get_status
 
 import json
 
@@ -72,6 +73,19 @@ async def get_datasets(includeTimeseriesData: bool, apiData=Depends(validateApiK
     datasets = ctrl.getDatasetInProject(projectId, includeTimeseriesData=includeTimeseriesData)
     return Response(json.dumps(datasets, cls=JSONEncoder), media_type="application/json")
 
+# Async upload
+@router.post("/async/device/{api_key}")
+async def upload_files_async(background_tasks: BackgroundTasks, json_data = Form(...), files: List[UploadFile] = File(...), apiData=Depends(validateApiKey('write'))):
+    fileInfo = json.loads(json_data)
+    userId = apiData["userId"]
+    projectId = apiData["projectId"]
+    downloadId = registerDownload(fileInfo, files, projectId, userId, background_tasks)
+    return downloadId
+
+@router.get("/async/device/{api_key}/status/{id}")
+async def get_async_upload_status(id, apiData=Depends(validateApiKey('write'))):
+    status = get_status(id)
+    return Response(json.dumps(status, cls=JSONEncoder, default=str))
 
 def cleanUp(fileName):
     os.remove(fileName)
