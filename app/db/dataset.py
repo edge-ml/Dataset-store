@@ -68,7 +68,6 @@ class DatasetDBManager:
     
     def updateDataset(self, id, project_id, dataset):
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
-        print(dataset)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
         return dataset
 
@@ -79,9 +78,7 @@ class DatasetDBManager:
     # For modifying dataset-labels
 
     def updateDatasetLabel(self, project_id, dataset_id, labeling_id, label_Id, newLabel):
-        print("Create new label")
         newLabel = DatasetLabel(newLabel)
-        print(newLabel)
         query = {"labelings": {"exist": True}, "_id": ObjectId(dataset_id), "projectId": ObjectId(project_id), "labeling.labelingId": labeling_id}
         update = {"$set": {"labelings.$[].labels.$[label]": newLabel}}
         array_filters = [{"label._id": label_Id}]

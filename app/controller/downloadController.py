@@ -23,9 +23,7 @@ dataset_db = DatasetDBManager()
 
 # Function to check and delete items older than 1 hour from downloadData
 def delete_old_items():
-    print("Cleanup")
     res = db.getOlder(1)
-    print(res)
     for r in res:
         os.remove(r.filePath)
         db.delete(r.downloadId)
@@ -34,7 +32,6 @@ def delete_old_items():
 def schedule_delete_task():
     while True:
         delete_old_items()
-        print("running")
         time.sleep(5)
 
 # Start the task in the background
@@ -59,7 +56,6 @@ def registerForDownloadDataset(projectId, dataset_id, userId, background_tasks):
 def registerForDownloadProject(projectId: PyObjectId, userId: PyObjectId, background_tasks):
     id = "%06x" % random.randint(0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     project = project_db.get_project(projectId)
-    print(project["name"])
     data = DBEntryProject(downloadId=id, projectId=projectId, userId=userId, projectName=project["name"])
     db.add(data)
     background_tasks.add_task(downloadProject, id, projectId)
@@ -105,8 +101,6 @@ async def get_download_data(id):
     if res.status < 100:
         raise Exception("File not ready yet")
 
-    print(type(res))
-
     if isinstance(res, DBEntryProject):
         with open(res.filePath, "rb") as file:
             response = StreamingResponse(iter([file.read()]), media_type="application/zip")
@@ -121,7 +115,6 @@ async def get_download_data(id):
 
 async def cancel_download(downloadId):
     res = db.get(downloadId)
-    print(res)
     try:
         os.remove(res.filePath)
     except:

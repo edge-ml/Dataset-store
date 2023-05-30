@@ -35,8 +35,6 @@ class DBEntry(BaseModel):
 
 # DBEntry = Union[DBEntryDataset, DBEntryProject]
 
-print(DBEntry)
-
 class csvDB:
     def __init__(self) -> None:
         self.mongo_client = MongoClient(MONGO_URI)
