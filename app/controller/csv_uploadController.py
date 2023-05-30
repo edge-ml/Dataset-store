@@ -21,6 +21,7 @@ import pandas as pd
 from app.db.labelings import LabelingDBManager
 from io import BytesIO
 from app.db.async_device_upload import AsyncUploadDB, UploadRequest
+from app.internal.config import RAW_UPLOAD_DATA
 
 
 asyncDB = AsyncUploadDB()
@@ -48,6 +49,8 @@ class CSVDatasetInfo(BaseModel):
     files: List[FileDescriptor]
     labeling: Optional[CsvLabeling]
     metaData: Optional[Dict[str, str]]
+    saveRaw: bool = Field(default=False)
+
 
 def generateLabeling(projectId, labeling : CsvLabeling):
     unique_labels_names = [x.name for x in labeling.labels]
@@ -60,6 +63,36 @@ async def _processData(info, files, projectId, userId, processId):
         dataset_name = info.name
         labeling = info.labeling
         file_info = info.files
+
+
+        # Write the raw data to disk
+        # Undocumented feature
+        print("SaveRaw: ", info.saveRaw)
+        if info.saveRaw:
+            if not os.path.exists(RAW_UPLOAD_DATA):
+                os.makedirs(RAW_UPLOAD_DATA)
+
+            saveFolderPath = os.path.join(RAW_UPLOAD_DATA, info.name)
+            if not os.path.exists(saveFolderPath):
+                # Create folder
+                os.makedirs(saveFolderPath)
+
+                # Write metadata:
+                with open(os.path.join(saveFolderPath), "metadata.json", "w") as file:
+                    file.write(json.dumps(info.dict(by_alias=True), indent=4))
+                
+                # Write the data
+                for file in files:
+                    filePath = os.path.join(saveFolderPath, file.fileName)
+                    with open(filePath, "wb") as f:
+                        while True:
+                            chunk = await file.read(1024)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+            else:
+                raise Exception("Folder already exists")
+
 
         # Add new labeling to the db
         if labeling:
@@ -129,7 +162,7 @@ async def _processData(info, files, projectId, userId, processId):
         return True
     except Exception as e:
         print("Error", e)
-        asyncDB.setError(processId, e)
+        asyncDB.setError(processId, str(e))
 
 
 
@@ -141,7 +174,7 @@ def registerDownload(fileInfo, files, projectId, userId, background_tasks):
 
 
 def get_status(id, user_id):
-    uploadRequest = asyncDB.getStatus(id, user_id);
+    uploadRequest = asyncDB.getStatus(id, user_id)
     if uploadRequest.error != "":
-        return HTTPException(status_code=500, detail=uploadRequest.error)
+        raise HTTPException(status_code=500, detail=uploadRequest.error)
     return {"status": uploadRequest.status}

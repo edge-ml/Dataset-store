@@ -30,6 +30,7 @@ class AsyncUploadDB:
         self.col.update_one({"_id": id}, {"$set": {"status": 100}})
 
     def setError(self, id, error):
+        print("Setting error")
         self.col.update_one({"_id": id}, {"$set": {"error": error}})
 
     def getStatus(self, id, user_id):
