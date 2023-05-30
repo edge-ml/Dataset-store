@@ -27,7 +27,6 @@ async def validate_user(Authorization: str = Header(...), project_id=Depends(ext
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User unauthorized on project")
         return (user_id, token, sub_level)
     except jwt.InvalidSignatureError as e:
-        print("Error")
         print(e)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
     except jwt.ExpiredSignatureError:

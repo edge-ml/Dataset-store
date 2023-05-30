@@ -17,7 +17,6 @@ def thread_safe(id):
     lock = locks[id]
     lock.acquire()
     lock_lock.release()
-    print(locks)
 
     try:
         print(f"Executing critical section for id {id}")

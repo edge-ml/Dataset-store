@@ -35,7 +35,6 @@ def createLabeling(project_id, labeling):
 
 def updateLabeling(project, id, labeling):
     newLabeling = dbm.update(project, id, labeling)
-    print(newLabeling)
     onLabelingChanged(project, newLabeling)
     return newLabeling
 

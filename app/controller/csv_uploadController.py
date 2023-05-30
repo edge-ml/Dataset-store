@@ -135,11 +135,13 @@ async def _processData(info, files, projectId, userId, processId):
 
 def registerDownload(fileInfo, files, projectId, userId, background_tasks):
     id = "%06x" % random.randint(0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    asyncDB.add_upload_request(UploadRequest(_id=id))
+    asyncDB.add_upload_request(UploadRequest(_id=id, user_id=userId))
     background_tasks.add_task(_processData, fileInfo, files, projectId, userId, id)
     return id
 
 
-def get_status(id):
-    status = asyncDB.getStatus(id);
-    return status
+def get_status(id, user_id):
+    uploadRequest = asyncDB.getStatus(id, user_id);
+    if uploadRequest.error != "":
+        return HTTPException(status_code=500, detail=uploadRequest.error)
+    return {"status": uploadRequest.status}

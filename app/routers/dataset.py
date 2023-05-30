@@ -60,7 +60,6 @@ async def getDatasetsInProject(project: str = Header(...), user_data=Depends(val
 
 @router.post("/{id}/ts/{start}/{end}/{max_resolution}")
 async def getTimeSeriesDatasetPartial(id, start, end, max_resolution, body: List[str], project: str = Header(...), user_data=Depends(validate_user)):
-    print("partial route")
     timeSeries = ctrl.getDatasetTimeSeriesStartEnd(id, body, project, start, end, max_resolution)
     res = orjson.dumps(timeSeries, option = orjson.OPT_SERIALIZE_NUMPY)
     return Response(res, media_type="application/json")

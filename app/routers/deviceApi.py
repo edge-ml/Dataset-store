@@ -80,11 +80,12 @@ async def upload_files_async(background_tasks: BackgroundTasks, json_data = Form
     userId = apiData["userId"]
     projectId = apiData["projectId"]
     downloadId = registerDownload(fileInfo, files, projectId, userId, background_tasks)
-    return downloadId
+    return Response(status_code=202, content=json.dumps({"uploadId": downloadId}, cls=JSONEncoder))
 
 @router.get("/async/device/{api_key}/status/{id}")
 async def get_async_upload_status(id, apiData=Depends(validateApiKey('write'))):
-    status = get_status(id)
+    userId = apiData["userId"]
+    status = get_status(id, userId)
     return Response(json.dumps(status, cls=JSONEncoder, default=str))
 
 def cleanUp(fileName):
@@ -92,7 +93,6 @@ def cleanUp(fileName):
 
 @router.get("/project/{api_key}/{dataset_id}/{timeseries_id}")
 async def get_dataset_data(dataset_id, timeseries_id, response: Response, apiData=Depends(validateApiKey('read'))):
-    print("Getting timeseries")
     projectId = apiData["projectId"]
     dataName = ctrl.getTimeSeriesData(projectId, dataset_id, timeseries_id)
     return FileResponse(dataName, media_type="application/octet-stream", filename="data.h5", background=BackgroundTask(cleanUp, fileName=dataName))

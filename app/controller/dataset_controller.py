@@ -159,7 +159,6 @@ class DatasetController():
         return self.dbm.updateDataset(id, projectId, dataset)
 
     def getDataSetByIdStartEnd(self, id, projectId, start, end, max_resolution):
-        print("full")
         dataset = self.dbm.getDatasetById(id, project_id=projectId)
         ts_ids = [x["_id"] for x in dataset["timeSeries"]]
         res = []
@@ -171,11 +170,9 @@ class DatasetController():
         return res
 
     def getDatasetTimeSeriesStartEnd(self, dataset_id, ts_id, project_id, start, end, max_resolution):
-        print("partial")
         dataset = self.dbm.getDatasetById(dataset_id, project_id=project_id)
         dataset_ids = [str(x["_id"]) for x in dataset["timeSeries"]]
         res = []
-        print(ts_id)
         for t in ts_id:
             if str(t) not in dataset_ids:
                 raise HTTPException(status.HTTP_404_NOT_FOUND)
@@ -296,14 +293,11 @@ class DatasetController():
 
         for l in datasetLabels:
             l["color"] = color_dict[l["name"]]
-        print(datasetLabels)
         labeling = createLabeling(project_id, {"name": labelingName, "labels": datasetLabels})
-        print(labeling)
         typeDict = {x["name"]: x["_id"] for x in labeling["labels"]}
         for l in datasetLabels:
             l["type"] = typeDict[l["name"]]
         dataset["labelings"] = [{"labelingId": labeling["_id"], "labels": datasetLabels}]
-        print(dataset)
         metadataset = self.addDataset(dataset=dataset, project=project_id, user_id=user_id)
         return metadataset["_id"]
 
@@ -318,16 +312,6 @@ class DatasetController():
                 binStore.delete()
         self.dbm.deleteProject(project)
 
-    async def processFiles(self, files: UploadFile):
-        print("Processing files")
-        for file in files:
-            try:
-                print("Name: ", file.filename)
-                content = await file.read(1024)
-                print(content)
-                break
-            except Exception as e:
-                print(e)
 
     # Upload whole datasets
     async def receiveFileInfoAndCSV(self, websocket, projectId, userId, dataModel = CSVDatasetInfo):
@@ -337,16 +321,13 @@ class DatasetController():
             info = await websocket.receive_text()
             info = json.loads(info)
             info = dataModel.parse_obj(info)
-            print(info)
             total_size = sum([x.size for x in info.files])
-            print("total_size", total_size)
             while True:
                 data = await websocket.receive_bytes()
                 files_byte += data
                 if len(files_byte) == total_size:
                     transmitting = False
                     break
-                print(total_size, len(files_byte), len(files_byte) / total_size * 100)
         return info, files_byte
 
 

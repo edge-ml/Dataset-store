@@ -17,8 +17,6 @@ async def main(loop):
         "amqp://guest:guest@127.0.0.1/", loop=loop
     )
 
-    print(connection)
-
     async with connection:
         queue_name = "edgeml"
         channel: aio_pika.abc.AbstractChannel = await connection.channel()
@@ -32,13 +30,11 @@ async def main(loop):
         async with queue.iterator() as queue_iter:
             async for message in queue_iter:
                 async with message.process():
-                    print(message.body)
                     body = json.loads(message.body)
                     command = body["command"]
                     payload = body["payload"]
 
                     if command == "projectDelete":
-                        print("Delete project: ", payload)
                         datasetController.deleteProjectDatasets(ObjectId(payload))
                         deleteProjectLabeling(ObjectId(payload))
 
