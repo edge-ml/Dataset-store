@@ -20,6 +20,7 @@ import json
 import pandas as pd
 from app.db.labelings import LabelingDBManager
 from io import BytesIO
+from app.internal.config import RAW_UPLOAD_DATA
 
 class FileDescriptor(BaseModel):
     name: str
@@ -42,10 +43,12 @@ class CSVDatasetInfo(BaseModel):
     files: List[FileDescriptor]
     labeling: Optional[CsvLabeling]
     metaData: Optional[Dict[str, str]]
+    saveRaw: bool = Field(default=False)
 
 class EdgeMLCSVDatasetInfo(BaseModel):
     name: str
     files: List[FileDescriptor]
+
 
 class DatasetController():
 
