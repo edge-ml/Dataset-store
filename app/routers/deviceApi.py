@@ -100,8 +100,12 @@ async def get_dataset_data(dataset_id, timeseries_id, response: Response, apiDat
 
 @router.get("/project/{api_key}")
 async def get_project(apiData=Depends(validateApiKey('read'))):
-    projectId = apiData["projectId"]
-    datasets = ctrl.getDatasetInProject(projectId, includeTimeseriesData=False)
-    labelings = getProjectLabelings(projectId)
-    return Response(json.dumps({"datasets": datasets, "labelings": labelings}, cls=JSONEncoder), media_type="application/json")
+    try:
+        projectId = apiData["projectId"]
+        datasets = ctrl.getDatasetInProject(projectId, includeTimeseriesData=False)
+        labelings = getProjectLabelings(projectId)
+        return Response(json.dumps({"datasets": datasets, "labelings": labelings}, cls=JSONEncoder), media_type="application/json")
+    except Exception as e:
+        print(e)
+        print(traceback.format_exc())
 

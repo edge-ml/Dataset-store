@@ -57,46 +57,45 @@ def generateLabeling(projectId, labeling : CsvLabeling):
     unique_labels = [{"name": x, "color": f'#{"%06x" % random.randint(0, 0xFFFFFF)}'} for x in unique_labels_names]
     return createLabeling(projectId, {"name": labeling.name, "labels": unique_labels})
 
-async def _processData(info, files, projectId, userId, processId):
+async def _processData(info, files : List[UploadFile], projectId, userId, processId):
     try:
         info = CSVDatasetInfo.parse_obj(info)
         dataset_name = info.name
         labeling = info.labeling
         file_info = info.files
 
-
         # Write the raw data to disk
         # Undocumented feature
-        print("SaveRaw: ", info.saveRaw)
         if info.saveRaw:
             if not os.path.exists(RAW_UPLOAD_DATA):
                 os.makedirs(RAW_UPLOAD_DATA)
 
             saveFolderPath = os.path.join(RAW_UPLOAD_DATA, info.name)
+            print(saveFolderPath, os.path.exists(saveFolderPath))
             if not os.path.exists(saveFolderPath):
                 # Create folder
                 os.makedirs(saveFolderPath)
 
                 # Write metadata:
-                with open(os.path.join(saveFolderPath), "metadata.json", "w") as file:
+                with open(os.path.join(saveFolderPath, "metadata.json"), "w") as file:
                     file.write(json.dumps(info.dict(by_alias=True), indent=4))
                 
                 # Write the data
                 for file in files:
-                    filePath = os.path.join(saveFolderPath, file.fileName)
+                    filePath = os.path.join(saveFolderPath, file.filename)
                     with open(filePath, "wb") as f:
                         while True:
                             chunk = await file.read(1024)
                             if not chunk:
                                 break
                             f.write(chunk)
+                        file.seek(0)
             else:
                 raise Exception("Folder already exists")
 
 
         # Add new labeling to the db
         if labeling:
-            print("using labels")
             newLabeling = generateLabeling(projectId=projectId, labeling=labeling)
 
             label_type_map = {x["name"]: x["_id"] for x in newLabeling["labels"]}
@@ -120,6 +119,7 @@ async def _processData(info, files, projectId, userId, processId):
 
         try:
             for i, f_info in enumerate(file_info):
+                await files[i].seek(0)
                 bin = await files[i].read()
                 start_idx += f_info.size
                 file = CsvParser(bin, drop=f_info.drop, time=f_info.time)
@@ -162,6 +162,7 @@ async def _processData(info, files, projectId, userId, processId):
         return True
     except Exception as e:
         print("Error", e)
+        print(traceback.format_exc())
         asyncDB.setError(processId, str(e))
 
 
