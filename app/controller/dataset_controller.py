@@ -187,12 +187,11 @@ class DatasetController():
     def append(self, id, project, body, projectId):
         dataset = self.dbm.getDatasetById(id, project)
         datasetIds = [x["_id"] for x in dataset["timeSeries"]]
-        sendIds = [ObjectId(x["_id"]) for x in body]
+        sendIds = [ObjectId(x["_id"]) for x in body["timeSeries"]]
         if set(datasetIds) != set(sendIds):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
 
-
-        for ts in body:
+        for ts in body['timeSeries']:
             binStore = BinaryStore(ts["_id"])
             binStore.loadSeries()
             tmpStart, tmpEnd, sampling_rate, length  = binStore.append(ts["data"])
@@ -203,6 +202,32 @@ class DatasetController():
             dataset["timeSeries"][idx]["end"] = max(oldEnd, tmpEnd) if oldEnd is not None else tmpEnd
             dataset["timeSeries"][idx]["length"] = length
             dataset["timeSeries"][idx]["samplingRate"] = sampling_rate
+        
+        labelings = []
+        for label in body["labels"]:
+            labeling = next((l for l in labelings if l["labelingId"] == label["labelingId"]), None)
+            if labeling is None:
+                labelings.append({"labelingId": label["labelingId"], 
+                                  "labels": [{
+                                      "start": label["start"], 
+                                      "end": label["end"], 
+                                      "type": label["labelType"], "metadata": {}
+                                }]})
+            else:
+                labeling["labels"].append({
+                    "start": label["start"],
+                    "end": label["end"],
+                    "type": label["labelType"],
+                    "metadata": {}
+                    })
+        
+        for labeling in labelings:
+            dataset_labeling = next((l for l in dataset["labelings"] if ObjectId(labeling["labelingId"]) == l["labelingId"]), None)
+            if dataset_labeling is None:
+                dataset["labelings"].append(labeling)
+            else:
+                dataset_labeling["labels"].extend(labeling["labels"])
+        
         self.dbm.updateDataset(id, project, dataset=dataset)
         return
 
