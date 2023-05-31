@@ -225,6 +225,9 @@ class DatasetController():
             dataset_labeling = next((l for l in dataset["labelings"] if ObjectId(labeling["labelingId"]) == l["labelingId"]), None)
             if dataset_labeling is None:
                 dataset["labelings"].append(labeling)
+            elif dataset_labeling["labels"][-1]["end"] == labeling["labels"][0]["start"]:
+                dataset_labeling["labels"][-1]["end"] = labeling["labels"][0]["start"]
+                dataset_labeling["labels"].extend(labeling["labels"][1:])
             else:
                 dataset_labeling["labels"].extend(labeling["labels"])
         
