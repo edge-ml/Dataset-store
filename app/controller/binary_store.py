@@ -7,19 +7,18 @@ from scipy.signal import resample
 import lttbc
 import h5py
 import functools
-from app.internal.config import TSDATA
 import tempfile
+from app.internal.config import TS_STORE_MECHANISM
+from app.dataLoader.FileSystemDataLoader import FileSystemDataLoader
+from app.dataLoader.S3DataLoader import S3DataLoader
 
-DATA_PREFIX = TSDATA
+dataLoader = None
 
-
-# @functools.lru_cache(maxsize=512)
-def _readSeries(path):
-    with open(path, "rb") as f:
-        len = struct.unpack("I", f.read(4))[0]
-        time_arr = np.asarray(struct.unpack("Q" * len, f.read(len * 8)), dtype=np.uint64)
-        data_arr = np.asarray(struct.unpack("f" * len, f.read(len * 4)), dtype=np.float32)
-        return time_arr, data_arr
+# Set the correct dataloader
+if TS_STORE_MECHANISM == "FS":
+    dataLoader = FileSystemDataLoader()
+if TS_STORE_MECHANISM == "S3":
+    dataLoader = S3DataLoader()
 
 
 class BinaryStore():
@@ -28,14 +27,9 @@ class BinaryStore():
         self._id = str(_id)
         self.time_arr = np.array([], dtype=np.uint64)
         self.data_arr = np.array([], dtype=np.float32)
-
-        if not os.path.exists(DATA_PREFIX):
-            os.makedirs(DATA_PREFIX)
-
-        self._path = join(DATA_PREFIX, self._id + ".bin")
     
     def loadSeries(self):
-        self.time_arr, self.data_arr = _readSeries(self._path)
+        self.time_arr, self.data_arr = dataLoader.load_series(self._id)
 
     def getHdf5Stream(self):
         self.loadSeries()
@@ -47,10 +41,8 @@ class BinaryStore():
             return tmp_file.name
 
     def saveSeries(self):
-        with open(join(DATA_PREFIX, self._id + ".bin"), "wb") as f:
-            f.write(struct.pack("I", len(self.time_arr)))
-            f.write(struct.pack("Q" * len(self.time_arr), *self.time_arr))
-            f.write(struct.pack("f" * len(self.data_arr), *self.data_arr))
+        dataLoader.save_series(self._id, self.time_arr, self.data_arr)
+        
 
     def getPart(self, start_time, end_time, max_resolution=None):
         max_resolution = int(float(max_resolution))
@@ -109,4 +101,4 @@ class BinaryStore():
 
 
     def delete(self):
-        os.remove(self._path)
+        dataLoader.delete(self._id)
