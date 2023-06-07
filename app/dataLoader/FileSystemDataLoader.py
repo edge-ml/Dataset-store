@@ -13,7 +13,7 @@ class FileSystemDataLoader(BaseDataLoader):
             os.makedirs(DATA_PREFIX)
 
 
-    def load_series(self, id, path):
+    def load_series(self, id):
         path = os.path.join(DATA_PREFIX, id + ".bin")
         print(path)
         with open(path, "rb") as f:
