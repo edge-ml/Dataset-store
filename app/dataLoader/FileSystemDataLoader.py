@@ -23,7 +23,7 @@ class FileSystemDataLoader(BaseDataLoader):
             return time_arr, data_arr
 
     def save_series(self, id, time_arr, data_arr):
-        with open(os.path.joinjoin(DATA_PREFIX, id + ".bin"), "wb") as f:
+        with open(os.path.join(DATA_PREFIX, id + ".bin"), "wb") as f:
             f.write(struct.pack("I", len(time_arr)))
             f.write(struct.pack("Q" * len(time_arr), *time_arr))
             f.write(struct.pack("f" * len(data_arr), *data_arr))
