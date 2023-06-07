@@ -14,3 +14,4 @@ python-multipart
 pandas
 websockets
 h5py
+boto3
