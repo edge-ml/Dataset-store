@@ -10,11 +10,10 @@ default_values = {
 
 config =  lambda x: None
 
-def loadConfig(fileName):
-    config = Config(f"envs/{fileName}.env")
-    for (k, v) in config.file_values.items():
-        globals()[k] = v
+config = Config(".env")
+for (k, v) in config.file_values.items():
+    globals()[k] = v
 
-    for variable, default_value in default_values.items():
-        if variable not in globals():
-            globals()[variable] = default_value
+for variable, default_value in default_values.items():
+    if variable not in globals():
+        globals()[variable] = default_value

@@ -1,16 +1,9 @@
 import uvicorn
 import argparse
-from app.internal.config import loadConfig
 parser = argparse.ArgumentParser(description="Run the database-store")
 parser.add_argument('--env', default="dev", choices=["dev", "docker"])
 args = parser.parse_args()
 env = args.env
-if env == "dev":
-    loadConfig("development")
-    print("load dev")
-if env == "docker":
-    loadConfig("docker")
-    print("load docker")
 from app.internal.config import PROJECT_DBNAME
 
 from fastapi import FastAPI, status
