@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Request, Header, Response, Form, File, UploadFile
+from fastapi import APIRouter, HTTPException, status, Request, Header, Response, Form, File, UploadFile, BackgroundTasks
 from fastapi.param_functions import Depends
 from app.utils.json_encoder import JSONEncoder
 from app.utils.CsvParser import CsvParser
@@ -30,15 +30,21 @@ async def createDataset(body: Request, project: str = Header(...), user_data=Dep
 # Create dataset from csv file
 # TODO: handle labels
 @router.post("/create")
-async def createDataset(CSVFile: UploadFile = File(...), CSVConfig: str = Form(...), project: str = Header(...), user_data = Depends(validate_user)):
+async def createDataset(background_tasks: BackgroundTasks, 
+                        CSVFile: UploadFile = File(...),
+                        CSVConfig: str = Form(...),
+                        project: str = Header(...),
+                        user_data=Depends(validate_user),
+                        ):
     (user_id, _, _) = user_data
-    metadata = None
     config = json.loads(CSVConfig)
-    try:
-        metadata = ctrl.CSVUpload(CSVFile, config, project, user_id)
-    except Exception as exp:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
-    return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")
+    dataset_id = ctrl.generate_dataset_id()
+    background_tasks.add_task(ctrl.CSVUpload, CSVFile, config, project, user_id, dataset_id)
+    return {"datasetId": dataset_id}
+
+@router.get("/create/progress")
+async def queryUploadProgress(datasetId: str, project: str = Header(...), user_data = Depends(validate_user)):
+    return {"progress": ctrl.get_upload_progress(datasetId)}
 
 # Get metadata of dataset
 @router.get("/{id}")

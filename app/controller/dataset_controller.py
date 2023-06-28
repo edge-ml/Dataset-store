@@ -6,7 +6,7 @@ from bson.objectid import ObjectId
 import time
 import os
 from fastapi import HTTPException, status
-from app.utils.helpers import custom_index
+from app.utils.helpers import PyObjectId, custom_index
 from app.db.deviceAPi import DeviceApiManager
 import requests
 import random
@@ -20,6 +20,8 @@ import json
 import pandas as pd
 from app.db.labelings import LabelingDBManager
 from io import BytesIO
+import bson
+from enum import Enum
 
 class FileDescriptor(BaseModel):
     name: str
@@ -46,6 +48,13 @@ class CSVDatasetInfo(BaseModel):
 class EdgeMLCSVDatasetInfo(BaseModel):
     name: str
     files: List[FileDescriptor]
+    
+class ProgressStep(Enum):
+    PARSING = ["Parsing the file", 20]
+    LABELING = ["Extracting labels", 40]
+    CREATING_DATASET = ["Generating dataset", 60]
+    UPLOAD_DATASET = ["Syncing with DB", 80]
+    COMPLETE = ["Complete", 100]
 
 class DatasetController():
 
@@ -57,7 +66,7 @@ class DatasetController():
         self.dbm = DatasetDBManager()
         self.deviceAPI = DeviceApiManager()
         self.dbm_labeling = LabelingDBManager()
-
+        self.csv_processings = {} # dataset_id - progress step
 
 
     def _splitMeta_Data(self, timeSeries):
@@ -234,7 +243,15 @@ class DatasetController():
         self.dbm.updateDataset(id, project, dataset=dataset)
         return
 
-    def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str):
+    @staticmethod
+    def generate_dataset_id():
+        return str(bson.ObjectId())
+    
+    def get_upload_progress(self, upload_id: str):
+        return self.csv_processings[upload_id]
+    
+    def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str, dataset_id: PyObjectId):
+        self.csv_processings[dataset_id] = ProgressStep.PARSING
         name = config['name'] if config['name'] else (
             file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
         df = pd.read_csv(file.file)
@@ -246,6 +263,7 @@ class DatasetController():
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
                                 detail="The file has no data")
 
+        self.csv_processings[dataset_id] = ProgressStep.LABELING
         # look up table to get id and labeling id it belongs from label name
         label_id_labeling = {}
         for labeling in labelings.keys():
@@ -294,8 +312,9 @@ class DatasetController():
             'labelingId': labelingId,
             'labels': labelingsInDatasetFormat[labelingId],
         } for labelingId in labelingsInDatasetFormat.keys()]
-
+        self.csv_processings[dataset_id] = ProgressStep.CREATING_DATASET
         dataset = {
+            'id': ObjectId(dataset_id),
             'name': name,
             'timeSeries': [{
                 'name': sensor,
@@ -306,7 +325,9 @@ class DatasetController():
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat
         }
+        self.csv_processings[dataset_id] = ProgressStep.UPLOAD_DATASET
         metadata = self.addDataset(dataset, project=project, user_id=user_id)
+        self.csv_processings[dataset_id] = ProgressStep.COMPLETE
         return metadata
 
     def externalUpload(self, api_key, user_id, body):
