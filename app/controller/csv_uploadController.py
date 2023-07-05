@@ -22,6 +22,7 @@ from app.db.labelings import LabelingDBManager
 from io import BytesIO
 from app.db.async_device_upload import AsyncUploadDB, UploadRequest
 from app.internal.config import RAW_UPLOAD_DATA
+import shutil
 
 
 asyncDB = AsyncUploadDB()
@@ -66,6 +67,7 @@ async def _processData(info, files : List[UploadFile], projectId, userId, proces
 
         # Write the raw data to disk
         # Undocumented feature
+        saveFolderPath = None
         if info.saveRaw:
             if not os.path.exists(RAW_UPLOAD_DATA):
                 os.makedirs(RAW_UPLOAD_DATA)
@@ -92,7 +94,6 @@ async def _processData(info, files : List[UploadFile], projectId, userId, proces
                         file.seek(0)
             else:
                 raise Exception("Folder already exists")
-
 
         # Add new labeling to the db
         if labeling:
@@ -145,20 +146,23 @@ async def _processData(info, files : List[UploadFile], projectId, userId, proces
             asyncDB.setError(processId, e)
             for tsId in tsIds:
                 BinaryStore(tsId).delete()
+            if saveFolderPath is not None:
+                shutil.rmtree(saveFolderPath)
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-        dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
-        timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h, "samplingRate": s_rate, "length": l} for s, e, tid, fName, h, s_rate, l in zip(starts, ends, tsIds, file_names, headers, sampling_rates, lengths)]
-        dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries,
-        "labelings": dataset_labeling, "metaData": info.metaData}
         try:
+            dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
+            timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h, "samplingRate": s_rate, "length": l} for s, e, tid, fName, h, s_rate, l in zip(starts, ends, tsIds, file_names, headers, sampling_rates, lengths)]
+            dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries,
+            "labelings": dataset_labeling, "metaData": info.metaData}
             newDatasetMeta = dbm.addDataset(dataset)
         except Exception as e:
             for tsId in tsIds:
                 BinaryStore(tsId).delete();
                 asyncDB.setError(processId, e)
-                raise e
+                if saveFolderPath is not None:
+                    shutil.rmtree(saveFolderPath)
+            raise e
         return True
     except Exception as e:
         print("Error", e)
@@ -176,6 +180,8 @@ def registerDownload(fileInfo, files, projectId, userId, background_tasks):
 
 def get_status(id, user_id):
     uploadRequest = asyncDB.getStatus(id, user_id)
+    if uploadRequest.error == "Folder already exists":
+        raise HTTPException(status_code=409, detail=uploadRequest.error)
     if uploadRequest.error != "":
         raise HTTPException(status_code=500, detail=uploadRequest.error)
     return {"status": uploadRequest.status}
