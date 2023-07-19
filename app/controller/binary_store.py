@@ -77,8 +77,9 @@ class BinaryStore():
         if len(tsValues) == 0:
             time, data = np.array([], dtype=np.uint64), np.array([], dtype=np.float32)
         else:
-            time, data = list(zip(*tsValues))
-            time, data = list(time), list(data)
+            time = tsValues[:, 0]
+            data = tsValues[:, 1]
+
         return self._appendValues(time, data)
 
     def _appendValues(self, time, data):
