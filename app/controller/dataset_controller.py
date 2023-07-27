@@ -1,5 +1,5 @@
 from io import StringIO
-from app.db.dataset import DatasetDBManager
+from app.db.dataset import DatasetDBManager, ProgressStep
 from .binary_store import BinaryStore
 from typing import Union
 from bson.objectid import ObjectId
@@ -48,14 +48,6 @@ class CSVDatasetInfo(BaseModel):
 class EdgeMLCSVDatasetInfo(BaseModel):
     name: str
     files: List[FileDescriptor]
-    
-class ProgressStep(Enum):
-    PARSING = ["Parsing the file", 20]
-    LABELING = ["Extracting labels", 40]
-    CREATING_DATASET = ["Generating dataset", 60]
-    UPLOAD_DATASET = ["Syncing with DB", 80]
-    COMPLETE = ["Complete", 100]
-
 class DatasetController():
 
     def __init__(self):
@@ -101,8 +93,12 @@ class DatasetController():
         datasetMeta["projectId"] = ObjectId(project)
         if user_id is not None:
             datasetMeta["userId"] = ObjectId(user_id)
-            newDatasetMeta = self.dbm.addDataset(datasetMeta)
+            if dataset.get("progressStep") == ProgressStep.PARSING.value:
+                newDatasetMeta = self.dbm.addDataset(datasetMeta)
+            else:
+                newDatasetMeta = self.dbm.updateDataset(datasetMeta["_id"], project, datasetMeta)
         try:
+            totalTimeSeries = min(len(datasetMeta["timeSeries"]), len(newDatasetMeta["timeSeries"]))
             for i, (t, newt) in enumerate(zip(datasetMeta["timeSeries"], newDatasetMeta["timeSeries"])):
                 metaData, tsValues = self._splitMeta_Data(t)
                 if isinstance(tsValues, zip):
@@ -113,6 +109,7 @@ class DatasetController():
                 newDatasetMeta["timeSeries"][i]["end"] = end
                 newDatasetMeta["timeSeries"][i]["length"] = length
                 newDatasetMeta["timeSeries"][i]["samplingRate"] = sampling_rate
+                self.dbm.partialUpdate(newDatasetMeta["_id"], newDatasetMeta["projectId"], "progressStep" ,ProgressStep.UPLOADING_DATASET.value + [i + 1, totalTimeSeries])
             newDatasetMeta = self.dbm.updateDataset(newDatasetMeta["_id"], newDatasetMeta["projectId"], newDatasetMeta)
         except Exception as e:
             self.dbm.deleteDatasetById(project, newDatasetMeta["_id"])
@@ -247,13 +244,20 @@ class DatasetController():
     def generate_dataset_id():
         return str(bson.ObjectId())
     
-    def get_upload_progress(self, upload_id: str):
-        return self.csv_processings[upload_id]
+    def get_upload_progress(self, dataset_id: str, project_id: str):
+        return self.dbm.getDatasetById(dataset_id, project_id)['progressStep']
     
     def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str, dataset_id: PyObjectId):
-        self.csv_processings[dataset_id] = ProgressStep.PARSING
         name = config['name'] if config['name'] else (
             file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
+        dataset = {
+            '_id': ObjectId(dataset_id), 
+            'name': name, 
+            'projectId': project, 
+            'userId': ObjectId(user_id),
+            'progressStep': ProgressStep.PARSING.value
+        }
+        metadata = self.dbm.addDataset(dataset)
         df = pd.read_csv(file.file)
         df.columns = df.columns.str.strip()
         parser = CsvParser(df=df)
@@ -263,7 +267,7 @@ class DatasetController():
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
                                 detail="The file has no data")
 
-        self.csv_processings[dataset_id] = ProgressStep.LABELING
+        self.dbm.partialUpdate(id=dataset_id, project_id=project, field='progressStep', value=ProgressStep.LABELING.value)
         # look up table to get id and labeling id it belongs from label name
         label_id_labeling = {}
         for labeling in labelings.keys():
@@ -312,9 +316,9 @@ class DatasetController():
             'labelingId': labelingId,
             'labels': labelingsInDatasetFormat[labelingId],
         } for labelingId in labelingsInDatasetFormat.keys()]
-        self.csv_processings[dataset_id] = ProgressStep.CREATING_DATASET
+        self.dbm.partialUpdate(id=dataset_id, project_id=project, field='progressStep', value=ProgressStep.CREATING_DATASET.value)
         dataset = {
-            'id': ObjectId(dataset_id),
+            '_id': ObjectId(dataset_id),
             'name': name,
             'timeSeries': [{
                 'name': sensor,
@@ -325,9 +329,9 @@ class DatasetController():
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat
         }
-        self.csv_processings[dataset_id] = ProgressStep.UPLOAD_DATASET
+        self.dbm.partialUpdate(id=dataset_id, project_id=project, field='progressStep', value=ProgressStep.UPLOADING_DATASET.value)
         metadata = self.addDataset(dataset, project=project, user_id=user_id)
-        self.csv_processings[dataset_id] = ProgressStep.COMPLETE
+        self.dbm.partialUpdate(id=dataset_id, project_id=project, field='progressStep', value=ProgressStep.COMPLETE.value)
         return metadata
 
     def externalUpload(self, api_key, user_id, body):

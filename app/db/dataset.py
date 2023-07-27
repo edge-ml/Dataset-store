@@ -2,9 +2,17 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
 from pydantic import BaseModel, ValidationError, validator, Field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from app.utils.helpers import PyObjectId
+from enum import Enum
 
+class ProgressStep(Enum):
+    PARSING = ["Parsing the file", 20]
+    LABELING = ["Extracting labels", 40]
+    CREATING_DATASET = ["Creating dataset", 60]
+    UPLOADING_DATASET = ["Syncing Timeseries with DB", 80]
+    COMPLETE = ["Complete", 100]
+    
 class SamplingRate(BaseModel):
     mean: float
     var: float
@@ -35,10 +43,10 @@ class DatasetSchema(BaseModel):
     projectId: PyObjectId
     name: str
     metaData: Dict[str, str] = Field(default={})
-    timeSeries: List[TimeSeries]
+    timeSeries: List[TimeSeries] = Field(default=[])
     labelings: List[DatasetLabeling] = Field(default=[])
     userId: PyObjectId
-
+    progressStep: List[Union[str, int]] = Field(default=ProgressStep.PARSING.value)
 
 class DatasetDBManager:
 
@@ -68,9 +76,14 @@ class DatasetDBManager:
     
     def updateDataset(self, id, project_id, dataset):
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
-        print(dataset)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
         return dataset
+    
+    def partialUpdate(self, id, project_id, field, value):
+        self.ds_collection.update_one(
+            {"_id": ObjectId(id), "projectId": ObjectId(project_id)},
+            {"$set": {field: value}}
+        )
 
     def deleteProject(self, project):
         self.ds_collection.delete_many({"_id": ObjectId(project)})

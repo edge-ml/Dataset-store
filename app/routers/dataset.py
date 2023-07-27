@@ -44,7 +44,7 @@ async def createDataset(background_tasks: BackgroundTasks,
 
 @router.get("/create/progress")
 async def queryUploadProgress(datasetId: str, project: str = Header(...), user_data = Depends(validate_user)):
-    return {"progress": ctrl.get_upload_progress(datasetId)}
+    return {"progress": ctrl.get_upload_progress(datasetId, project)}
 
 # Get metadata of dataset
 @router.get("/{id}")
