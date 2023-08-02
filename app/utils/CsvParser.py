@@ -76,7 +76,17 @@ class CsvParser():
 
         # extract sensor data
         sensor_mask = [s for s in self.df.columns if s.startswith('sensor_')]
-        sensor_data = self.df[sensor_mask]
+        sensor_data = self.df[sensor_mask].copy()
+        
+        # apply scaling and offset for each timeseries
+        scaling_offset = {}
+        for series in config['timeSeries']:
+            name = series['originalName']
+            scaling_offset[name] = (series['originalUnit'], float(series['scale']), float(series['offset']))
+        
+        for name, (unit, scale, offset) in scaling_offset.items():
+            column_name = f'sensor_{name}[{unit}]'
+            sensor_data.loc[:, column_name] = sensor_data.loc[:, column_name] * scale + offset
 
         # extract label data
         label_mask = [s for s in self.df.columns if s.startswith('label_')]
@@ -86,12 +96,9 @@ class CsvParser():
         # remove 'sensor_' prefix
         sensor_names = [s[7:] for s in sensor_mask]
 
-        # extract units at the end from square brackets example: sensor_accX[unit]
+        # parse units from config
         unit_pattern = r'\[([^\[\]]*)\]$'
-        units = [
-            re.search(unit_pattern, s).group(1)
-            if re.search(unit_pattern, s) else '' for s in sensor_names
-        ]
+        units = [ts['unit'] for ts in config['timeSeries']]
 
         # remove unit suffix from sensor names
         sensor_names = [re.sub(unit_pattern, '', s) for s in sensor_names]
