@@ -86,7 +86,8 @@ async def upload_files_async(background_tasks: BackgroundTasks, json_data = Form
 async def get_async_upload_status(id, apiData=Depends(validateApiKey('write'))):
     userId = apiData["userId"]
     status = get_status(id, userId)
-    return Response(json.dumps(status, cls=JSONEncoder, default=str))
+    headers = {"X-status": status["status"]}
+    return Response(json.dumps(status, cls=JSONEncoder, default=str), headers=headers)
 
 def cleanUp(fileName):
     os.remove(fileName)
