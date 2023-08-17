@@ -94,6 +94,12 @@ async def updateDatasetById(id, body: Request, project: str = Header(...), user_
     ctrl.updateDataset(id, project, body)
     return {"message": "success"}
 
+# Rename dataset
+@router.put("/{id}/rename")
+async def updateDatasetFieldById(id, newName, project: str = Header(...), user_data=Depends(validate_user)):
+    ctrl.renameDataset(id, project, newName)
+    return {"message": "success"}
+
 @router.post("/{id}/append")
 async def appendToDataset(id, body: Request, project: str = Header(...), user_data=Depends(validate_user)):
     try:

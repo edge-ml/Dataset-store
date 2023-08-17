@@ -161,6 +161,9 @@ class DatasetController():
             binStore = BinaryStore(id)
             binStore.delete()
 
+    def renameDataset(self, id, projectId, newName):
+        return self.dbm.partialUpdate(id, projectId, "name", newName)
+
     def updateDataset(self, id, projectId, dataset):
         return self.dbm.updateDataset(id, projectId, dataset)
 
