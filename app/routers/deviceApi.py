@@ -80,7 +80,7 @@ async def upload_files_async(background_tasks: BackgroundTasks, json_data = Form
     userId = apiData["userId"]
     projectId = apiData["projectId"]
     downloadId = registerDownload(fileInfo, files, projectId, userId, background_tasks)
-    headers = {"X-uploadid": downloadId}
+    headers = {"Location": downloadId}
     return Response(status_code=202, content=json.dumps({"uploadId": downloadId}, cls=JSONEncoder), headers=headers)
 
 @router.get("/async/device/{api_key}/status/{id}")
