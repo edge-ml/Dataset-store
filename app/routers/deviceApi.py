@@ -80,14 +80,14 @@ async def upload_files_async(background_tasks: BackgroundTasks, json_data = Form
     userId = apiData["userId"]
     projectId = apiData["projectId"]
     downloadId = registerDownload(fileInfo, files, projectId, userId, background_tasks)
-    headers = {"Location": downloadId}
+    headers = {"Location": str(downloadId)}
     return Response(status_code=202, content=json.dumps({"uploadId": downloadId}, cls=JSONEncoder), headers=headers)
 
 @router.get("/async/device/{api_key}/status/{id}")
 async def get_async_upload_status(id, apiData=Depends(validateApiKey('write'))):
     userId = apiData["userId"]
     status = get_status(id, userId)
-    headers = {"X-status": status["status"]}
+    headers = {"X-status": str(status["status"])}
     return Response(json.dumps(status, cls=JSONEncoder, default=str), headers=headers)
 
 def cleanUp(fileName):
