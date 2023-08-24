@@ -18,10 +18,9 @@ class AsyncUploadDB:
     def __init__(self) -> None:
         self.mongo_client = MongoClient(MONGO_URI)
         self.db = self.mongo_client[DATASTORE_DBNAME]
-        self.col = self.db[ASYNC_UPLOAD_COLNAME]
+        self.col = self.db[ASYNC_UPLOAD_COLNAME] 
         
-        # Create TTL index for the created_at field with a expireAfterSeconds value of 86400 (1 day)
-        self.col.create_index("created_at", expireAfterSeconds=86400)
+        self.col.create_index("created_at", expireAfterSeconds=60*60*24*365)
 
     def add_upload_request(self, req: UploadRequest):
         res = self.col.insert_one(req.dict(by_alias=True))
