@@ -85,7 +85,7 @@ class CsvParser():
             scaling_offset[name] = (series['originalUnit'], float(series['scale']), float(series['offset']))
         
         for name, (unit, scale, offset) in scaling_offset.items():
-            column_name = f'sensor_{name}[{unit}]'
+            column_name = f'sensor_{name}[{unit}]' if len(unit) > 0 else f'sensor_{name}'
             sensor_data.loc[:, column_name] = sensor_data.loc[:, column_name] * scale + offset
 
         # extract label data
