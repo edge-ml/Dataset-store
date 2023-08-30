@@ -17,7 +17,6 @@ router = APIRouter()
 
 ctrl = DatasetController()
 
-
 # Create dataset
 @router.post("/")
 async def createDataset(body: Request, project: str = Header(...), user_data=Depends(validate_user)):
@@ -96,8 +95,14 @@ async def updateDatasetById(id, body: Request, project: str = Header(...), user_
 
 # Rename dataset
 @router.put("/{id}/rename")
-async def updateDatasetFieldById(id, newName, project: str = Header(...), user_data=Depends(validate_user)):
+async def renameDataset(id, newName, project: str = Header(...), user_data=Depends(validate_user)):
     ctrl.renameDataset(id, project, newName)
+    return {"message": "success"}
+
+# Update the timeseries unit config of dataset
+@router.put("/{dataset_id}/changeUnitConfig")
+async def updateUnitConfig(dataset_id, tsId, unit, scaling, offset, project: str = Header(...), user_data=Depends(validate_user)):
+    ctrl.updateUnitConfig(dataset_id, tsId, project, unit, scaling, offset)
     return {"message": "success"}
 
 @router.post("/{id}/append")

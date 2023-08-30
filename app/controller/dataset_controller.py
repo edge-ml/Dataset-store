@@ -109,7 +109,7 @@ class DatasetController():
                 newDatasetMeta["timeSeries"][i]["end"] = end
                 newDatasetMeta["timeSeries"][i]["length"] = length
                 newDatasetMeta["timeSeries"][i]["samplingRate"] = sampling_rate
-                self.dbm.partialUpdate(newDatasetMeta["_id"], newDatasetMeta["projectId"], "progressStep" ,ProgressStep.UPLOADING_DATASET.value + [i + 1, totalTimeSeries])
+                self.dbm.partialUpdate(newDatasetMeta["_id"], newDatasetMeta["projectId"], {"progressStep": ProgressStep.UPLOADING_DATASET.value + [i + 1, totalTimeSeries]})
             newDatasetMeta = self.dbm.updateDataset(newDatasetMeta["_id"], newDatasetMeta["projectId"], newDatasetMeta)
         except Exception as e:
             self.dbm.deleteDatasetById(project, newDatasetMeta["_id"])
@@ -162,7 +162,10 @@ class DatasetController():
             binStore.delete()
 
     def renameDataset(self, id, projectId, newName):
-        return self.dbm.partialUpdate(id, projectId, "name", newName)
+        return self.dbm.partialUpdate(id, projectId, {"name": newName})
+    
+    def updateUnitConfig(self, dataset_id, timeSeries_id, project_id, unit, scaling, offset):
+        return self.dbm.updateTimeSeriesUnitConfig(dataset_id, timeSeries_id, project_id, unit, scaling, offset)
 
     def updateDataset(self, id, projectId, dataset):
         return self.dbm.updateDataset(id, projectId, dataset)
@@ -270,7 +273,7 @@ class DatasetController():
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
                                 detail="The file has no data")
 
-        self.dbm.partialUpdate(id=dataset_id, project_id=project, field='progressStep', value=ProgressStep.LABELING.value)
+        self.dbm.partialUpdate(id=dataset_id, project_id=project, updates={'progressStep': ProgressStep.LABELING.value})
         # look up table to get id and labeling id it belongs from label name
         label_id_labeling = {}
         for labeling in labelings.keys():
@@ -319,7 +322,7 @@ class DatasetController():
             'labelingId': labelingId,
             'labels': labelingsInDatasetFormat[labelingId],
         } for labelingId in labelingsInDatasetFormat.keys()]
-        self.dbm.partialUpdate(id=dataset_id, project_id=project, field='progressStep', value=ProgressStep.CREATING_DATASET.value)
+        self.dbm.partialUpdate(id=dataset_id, project_id=project, updates={'progressStep': ProgressStep.CREATING_DATASET.value})
         dataset = {
             '_id': ObjectId(dataset_id),
             'name': name,
@@ -332,9 +335,9 @@ class DatasetController():
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat
         }
-        self.dbm.partialUpdate(id=dataset_id, project_id=project, field='progressStep', value=ProgressStep.UPLOADING_DATASET.value)
+        self.dbm.partialUpdate(id=dataset_id, project_id=project, updates={'progressStep': ProgressStep.UPLOADING_DATASET.value})
         metadata = self.addDataset(dataset, project=project, user_id=user_id)
-        self.dbm.partialUpdate(id=dataset_id, project_id=project, field='progressStep', value=ProgressStep.COMPLETE.value)
+        self.dbm.partialUpdate(id=dataset_id, project_id=project, updates={'progressStep': ProgressStep.COMPLETE.value})
         return metadata
 
     def externalUpload(self, api_key, user_id, body):
