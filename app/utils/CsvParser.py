@@ -53,25 +53,21 @@ class CsvParser():
             print("no data")
             return None, None, None, None, None, None, None
 
-        # TODO: Fix deletion
-        # removed_timeseries = []
-        # removed_labelings = []
-        # for ts in ts_config:
-        #     if ts['removed']:
-        #         removed_timeseries.append(sensor_start_idx + ts['index'])
-        # for labeling in labeling_config:
-        #     if labeling['removed']:
-        #         removed_labelings.extend(
-        #             [sensor_end_idx + index for index in labeling['indices']])
-
-        # # remove unused columns to speed up
-        # data = np.delete(data, removed_timeseries + removed_labelings, axis=1)
-
-        # update values after removal
-        # header = data[0]
-        # data = data[1:]
-
-
+        for ts in ts_config:
+            if ts['removed']:
+                name = ts["originalName"]
+                unit = ts["originalUnit"]
+                column_name = f'sensor_{name}[{unit}]'
+                if column_name not in self.df.columns:
+                    column_name = f'sensor_{name}'
+                self.df.drop(column_name, axis=1, inplace=True)
+                
+        for labeling in labeling_config:
+            if labeling['removed']:
+                for label in labeling['labels']:
+                    column_name = f'label_{labeling["originalName"]}_{label}'
+                    self.df.drop(column_name, axis=1, inplace=True)
+        
         self.df.sort_values(by='time', inplace=True)
 
         # extract sensor data
@@ -80,9 +76,11 @@ class CsvParser():
         
         # apply scaling and offset for each timeseries
         scaling_offset = {}
-        for series in config['timeSeries']:
-            name = series['originalName']
-            scaling_offset[name] = (series['originalUnit'], float(series['scale']), float(series['offset']))
+        for ts in config['timeSeries']:
+            if (ts['removed']):
+                continue
+            name = ts['originalName']
+            scaling_offset[name] = (ts['originalUnit'], float(ts['scale']), float(ts['offset']))
         
         for name, (unit, scale, offset) in scaling_offset.items():
             column_name = f'sensor_{name}[{unit}]'
