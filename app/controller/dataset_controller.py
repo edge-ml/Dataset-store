@@ -21,6 +21,7 @@ import pandas as pd
 from app.db.labelings import LabelingDBManager
 from io import BytesIO
 from app.internal.config import RAW_UPLOAD_DATA
+import numpy as np
 
 class FileDescriptor(BaseModel):
     name: str
@@ -274,7 +275,7 @@ class DatasetController():
                 'start': timestamps[0],
                 'end': timestamps[-1],
                 'unit': units[sensor_idx],
-                'data': zip(timestamps, sensor_data.iloc[:, sensor_idx]) # TODO: remove list to increase performance
+                'data': np.column_stack((timestamps, sensor_data.iloc[:, sensor_idx]))
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat
         }
