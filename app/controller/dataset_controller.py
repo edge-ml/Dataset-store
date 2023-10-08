@@ -299,7 +299,7 @@ class DatasetController():
             intervals = []
             # labeling_label_list has the following format: labeling_label
             # extract only label
-            label_name = labeling_label_list[label_idx].split('_')[1]
+            label_name = labeling_label_list[label_idx].split('_', maxsplit=1)[1]
             labelingId = label_id_labeling[label_name]['labelingId']
             while idx < data_length:
                 if data[idx] == 'x':
