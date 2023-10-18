@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Request, Header, Response, Form, File, UploadFile
-from fastapi.param_functions import Depends
+from fastapi.param_functions import Depends, Query
 from app.utils.json_encoder import JSONEncoder
 from app.utils.CsvParser import CsvParser
 from app.routers.dependencies import validate_user
@@ -40,6 +40,21 @@ async def createDataset(CSVFile: UploadFile = File(...), CSVConfig: str = Form(.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
     return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")
 
+@router.get("/view")
+async def getDatasetsInProjectWithPagination(
+    project: str = Header(...),
+    user_data=Depends(validate_user),
+    page: int = Query(1, description="Page number", ge=1),
+    page_size: int = Query(5, description="Page size", ge=1)
+):
+    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, page, page_size)
+    response_data = {
+        "datasets": datasets,
+        "total_datasets": total_count
+    }
+
+    return Response(json.dumps(response_data, cls=JSONEncoder), media_type="application/json")
+
 # Get metadata of dataset
 @router.get("/{id}")
 async def getDatasetMetaData(id, project : str = Header(...), user_data=Depends(validate_user)):
@@ -51,6 +66,7 @@ async def getDatasetMetaData(id, project : str = Header(...), user_data=Depends(
 async def getDatasetsInProject(project: str = Header(...), user_data=Depends(validate_user)):
     data = ctrl.getDatasetInProject(project)
     return Response(json.dumps(data, cls=JSONEncoder), media_type="application/json")
+
 
 # Get dataset
 # @router.get("/{id}")
