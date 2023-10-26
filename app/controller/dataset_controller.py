@@ -144,8 +144,8 @@ class DatasetController():
             datasets_with_timeseries.append(ds)
         return datasets_with_timeseries
     
-    def getDatasetInProjectWithPagination(self, projectId, page, page_size, includeTimeseriesData=False):
-        datasets, total_count = self.dbm.getDatasetsInProjectByPage(projectId, page, page_size)
+    def getDatasetInProjectWithPagination(self, projectId, page, page_size, sort, includeTimeseriesData=False):
+        datasets, total_count = self.dbm.getDatasetsInProjectByPage(projectId, page, page_size, sort)
         datasets = list(datasets)
         if not includeTimeseriesData:
             return datasets, total_count

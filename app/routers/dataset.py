@@ -45,9 +45,10 @@ async def getDatasetsInProjectWithPagination(
     project: str = Header(...),
     user_data=Depends(validate_user),
     page: int = Query(1, description="Page number", ge=1),
-    page_size: int = Query(5, description="Page size", ge=1)
+    page_size: int = Query(5, description="Page size", ge=5),
+    sort: str = Query('alphaAsc', description="Sorting algorithm")
 ):
-    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, page, page_size)
+    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, page, page_size, sort)
     response_data = {
         "datasets": datasets,
         "total_datasets": total_count

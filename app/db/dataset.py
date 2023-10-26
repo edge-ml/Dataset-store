@@ -66,12 +66,23 @@ class DatasetDBManager:
         datasets = self.ds_collection.find({"projectId": ObjectId(project_id)})
         return datasets
     
-    def getDatasetsInProjectByPage(self, project_id, page, page_size):
+    def getDatasetsInProjectByPage(self, project_id, page, page_size, sort):
         # Calculate the number of datasets to skip to reach the desired page
         skip_count = (page - 1) * page_size
         query = {"projectId": ObjectId(project_id)}
+        #sorting
+        sortField = ''
+        sortOrder = ''
+
+        if sort == 'alphaAsc':
+            sortField = 'name'
+            sortOrder = 1
+        elif sort == 'alphaDesc':
+            sortField = 'name'
+            sortOrder = -1
+
         # Perform the query to get paginated datasets
-        datasets = self.ds_collection.find(query).skip(skip_count).limit(page_size)
+        datasets = self.ds_collection.find(query).sort(sortField, sortOrder).collation({'locale': 'en', 'strength': 2}).skip(skip_count).limit(page_size)
         total_count = self.ds_collection.count_documents(query)
         return datasets, total_count
     
