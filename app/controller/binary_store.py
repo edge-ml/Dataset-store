@@ -37,7 +37,6 @@ class BinaryStore():
             with h5py.File(tmp_file.name, "w") as hf:
                 hf.create_dataset("time", data=self.time_arr)
                 hf.create_dataset("data", data=self.data_arr)
-                print(self.data_arr)
             return tmp_file.name
 
     def saveSeries(self):
@@ -77,6 +76,7 @@ class BinaryStore():
         if len(tsValues) == 0:
             time, data = np.array([], dtype=np.uint64), np.array([], dtype=np.float32)
         else:
+            tsValues = np.asarray(tsValues)
             time = tsValues[:, 0]
             data = tsValues[:, 1]
 

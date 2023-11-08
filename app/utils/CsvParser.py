@@ -137,7 +137,6 @@ class CsvParser():
         time_arr = df.loc[:, selected_time].to_numpy().astype(np.uint64)
         df = df.drop(self.drop_cols + [selected_time], axis=1, errors="ignore")
         data_arr = df.to_numpy().T.astype(np.float32)
-        print(data_arr[:, 0])
         header = list(df.columns)
         return time_arr, data_arr, header
 

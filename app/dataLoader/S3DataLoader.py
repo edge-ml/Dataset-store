@@ -12,7 +12,6 @@ class S3DataLoader(BaseDataLoader):
 
     def load_series(self, id):
         obj = self.s3.get_object(Bucket=S3_BUCKET_NAME, Key=id)
-        print(obj)
         buffer = BytesIO(obj['Body'].read())
         with h5py.File(buffer, 'r') as f:
             time_arr = np.array(f['time'])
@@ -26,9 +25,7 @@ class S3DataLoader(BaseDataLoader):
             f.create_dataset('data', data=data_arr)
         buffer.seek(0)
         self.s3.put_object(Bucket=S3_BUCKET_NAME, Key=id, Body=buffer.getvalue())
-        print("Series saved to S3 successfully.")
 
 
     def delete(self, id):
         self.s3.delete_object(Bucket=S3_BUCKET_NAME, Key=id)
-        print(f"Object with id {id} deleted successfully.")
