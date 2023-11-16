@@ -70,21 +70,40 @@ class DatasetDBManager:
         # Calculate the number of datasets to skip to reach the desired page
         skip_count = (page - 1) * page_size
         query = {"projectId": ObjectId(project_id)}
-        #sorting
-        sortField = ''
-        sortOrder = ''
 
-        if sort == 'alphaAsc':
-            sortField = 'name'
-            sortOrder = 1
-        elif sort == 'alphaDesc':
-            sortField = 'name'
-            sortOrder = -1
+        if(sort == 'alphaAsc' or sort == 'alphaDesc'):
+            sortField = ''
+            sortOrder = ''
 
-        # Perform the query to get paginated datasets
-        datasets = self.ds_collection.find(query).sort(sortField, sortOrder).collation({'locale': 'en', 'strength': 2}).skip(skip_count).limit(page_size)
-        total_count = self.ds_collection.count_documents(query)
-        return datasets, total_count
+            if sort == 'alphaAsc':
+                sortField = 'name'
+                sortOrder = 1
+            elif sort == 'alphaDesc':
+                sortField = 'name'
+                sortOrder = -1
+
+            # Perform the query to get paginated datasets
+            datasets = self.ds_collection.find(query).sort(sortField, sortOrder).collation({'locale': 'en', 'strength': 2}).skip(skip_count).limit(page_size)
+            total_count = self.ds_collection.count_documents(query)
+            return datasets, total_count
+        elif sort == 'dateAsc' or sort == 'dateDesc':
+            if(sort == 'dateAsc'):
+                sortOrder = 1
+            else:
+                sortOrder = -1
+            #get all datasets
+            pipeline = [
+                {"$match": {"projectId": ObjectId(project_id)}},
+                {"$addFields": {"min_start": {"$min": "$timeSeries.start"}}},
+                {"$sort": {"min_start": sortOrder}},
+                {"$skip": skip_count},
+                {"$limit": page_size}
+            ]
+            datasets = self.ds_collection.aggregate(pipeline)
+            total_count = self.ds_collection.count_documents(query)
+            return datasets, total_count
+
+
     
     def updateDataset(self, id, project_id, dataset):
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
