@@ -66,44 +66,72 @@ class DatasetDBManager:
         datasets = self.ds_collection.find({"projectId": ObjectId(project_id)})
         return datasets
     
-    def getDatasetsInProjectByPage(self, project_id, page, page_size, sort):
+    def getDatasetsInProjectByPage(self, project_id, page, page_size, sort, filters):
         # Calculate the number of datasets to skip to reach the desired page
         skip_count = (page - 1) * page_size
         query = {"projectId": ObjectId(project_id)}
+        pipeline = []
 
+        #filter for labelings and labels
+        if filters and 'labelings' in filters:
+            pipeline.append({
+                "$match": {
+                    "$and": [
+                        query,
+                        {
+                            "$or": [
+                                {"labelings": {"$elemMatch": {"labelingId": {"$in": filters.labelings.target_labeling_ids}}}},
+                                {"labelings.labels": {"$elemMatch": {"id": {"$in": filters.labelings.target_label_ids}}}}
+                            ]          
+                        }
+                    ]
+                }
+            })
+        #no filters applied
+        else:
+            pipeline.append({"$match": {"projectId": ObjectId(project_id)}})
+
+        #count ds at this stage
+        pipeline.append( {"$facet": {
+        "datasets": [],
+        "count": [
+            {"$count": "count"}
+        ]
+    }})
+
+        #sorting
         if(sort == 'alphaAsc' or sort == 'alphaDesc'):
-            sortField = ''
-            sortOrder = ''
+            sortField = 'name'
+            sortOrder = 0
 
             if sort == 'alphaAsc':
-                sortField = 'name'
                 sortOrder = 1
             elif sort == 'alphaDesc':
-                sortField = 'name'
                 sortOrder = -1
-
-            # Perform the query to get paginated datasets
-            datasets = self.ds_collection.find(query).sort(sortField, sortOrder).collation({'locale': 'en', 'strength': 2}).skip(skip_count).limit(page_size)
-            total_count = self.ds_collection.count_documents(query)
-            return datasets, total_count
-        elif sort == 'dateAsc' or sort == 'dateDesc':
+            pipeline[1]['$facet']['datasets'].extend([{"$sort": {sortField: sortOrder}},
+            #{"$collation": {'locale': 'en', 'strength': 2}}
+            ])
+        
+        if(sort == 'dateAsc' or sort == 'dateDesc'):
+            sortOrder = 0
             if(sort == 'dateAsc'):
                 sortOrder = 1
             else:
-                sortOrder = -1
-            #get all datasets
-            pipeline = [
-                {"$match": {"projectId": ObjectId(project_id)}},
-                {"$addFields": {"min_start": {"$min": "$timeSeries.start"}}},
-                {"$sort": {"min_start": sortOrder}},
-                {"$skip": skip_count},
-                {"$limit": page_size}
-            ]
-            datasets = self.ds_collection.aggregate(pipeline)
-            total_count = self.ds_collection.count_documents(query)
-            return datasets, total_count
+                sortOrder = -1   
+            pipeline[1]['$facet']['datasets'].extend([{"$addFields": {"min_start": {"$min": "$timeSeries.start"}}},
+                {"$sort": {"min_start": sortOrder}}])
+        
+        #add pagination to pipeline 
+        pipeline[1]['$facet']['datasets'].extend([{"$skip": skip_count},
+                {"$limit": page_size}])
+        
+        #ds count and datasets
+        result = list(self.ds_collection.aggregate(pipeline))
+        datasets = result[0]["datasets"]
+        total_count = result[0]["count"][0]["count"] if result and "count" in result[0] else 0
 
-
+        return datasets, total_count
+        
     
     def updateDataset(self, id, project_id, dataset):
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)

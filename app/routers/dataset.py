@@ -40,15 +40,19 @@ async def createDataset(CSVFile: UploadFile = File(...), CSVConfig: str = Form(.
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
     return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")
 
-@router.get("/view")
+@router.post("/view")
 async def getDatasetsInProjectWithPagination(
-    project: str = Header(...),
-    user_data=Depends(validate_user),
+    request: Request,
     page: int = Query(1, description="Page number", ge=1),
     page_size: int = Query(5, description="Page size", ge=5),
-    sort: str = Query('alphaAsc', description="Sorting algorithm")
+    sort: str = Query('alphaAsc', description="Sorting algorithm"),
+    project: str = Header(...),
+    user_data=Depends(validate_user),
 ):
-    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, page, page_size, sort)
+    body = await request.json()
+    print(body)
+    filters = []
+    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, page, page_size, sort, filters)
     response_data = {
         "datasets": datasets,
         "total_datasets": total_count
