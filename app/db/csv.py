@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from app.internal.config import MONGO_URI, DATASTORE_DBNAME, CSV_COLLNAME
-from pydantic import BaseModel, ValidationError, validator, Field
+from pydantic import BaseModel, RootModel, ValidationError, validator, Field
 from typing import Dict, List, Union
 from app.utils.helpers import PyObjectId
 import datetime
@@ -30,8 +30,8 @@ class DBEntryProject(BaseModel):
     projectName: str
     filePath : str = ""
 
-class DBEntry(BaseModel):
-    __root__: Union[DBEntryDataset, DBEntryProject]
+class DBEntry(RootModel):
+    root: Union[DBEntryDataset, DBEntryProject]
 
 # DBEntry = Union[DBEntryDataset, DBEntryProject]
 
@@ -52,12 +52,12 @@ class csvDB:
 
     def get(self, download_id):
         data = self.col.find_one({"downloadId": download_id})
-        data = DBEntry.parse_obj(data).__root__
+        data = DBEntry.parse_obj(data).root
         return data
     
     def get_by_user(self, user_id):
         data = self.col.find({"userId": user_id})
-        data = [DBEntry.parse_obj(x).__root__ for x in data]
+        data = [DBEntry.parse_obj(x).root for x in data]
         return data
     
     def update(self, download_id=None, status=None, error=None, fileName=None, filePath=None):
@@ -83,4 +83,4 @@ class csvDB:
     def getOlder(self, time_delta):
         time_threshold = datetime.datetime.utcnow() - datetime.timedelta(seconds=time_delta)
         data = self.col.find({"created_at": {"$lt": time_threshold}})
-        return [DBEntry.parse_obj(entry).__root__ for entry in data]
+        return [DBEntry.parse_obj(entry).root for entry in data]
