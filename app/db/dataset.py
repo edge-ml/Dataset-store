@@ -11,12 +11,12 @@ class SamplingRate(BaseModel):
 
 class TimeSeries(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    start: Optional[int]
-    end: Optional[int]
+    start: int | None = None
+    end: int | None = None
     unit: str = Field(default="")
     name: str
-    samplingRate: Optional[SamplingRate]
-    length: Optional[int]
+    samplingRate: SamplingRate | None = None
+    length: int | None = None
 
 
 class DatasetLabel(BaseModel):
@@ -48,6 +48,7 @@ class DatasetDBManager:
         self.ds_collection = self.db[DATASTORE_COLLNAME]
 
     def addDataset(self, dataset):
+        print(dataset)
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
         self.ds_collection.insert_one(dataset)
         return dataset

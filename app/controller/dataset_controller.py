@@ -42,8 +42,8 @@ class CsvLabeling(BaseModel):
 class CSVDatasetInfo(BaseModel):
     name: str
     files: List[FileDescriptor]
-    labeling: Optional[CsvLabeling]
-    metaData: Optional[Dict[str, str]]
+    labeling: CsvLabeling | None = None
+    metaData: Dict[str, str] | None = None
     saveRaw: bool = Field(default=False)
 
 class EdgeMLCSVDatasetInfo(BaseModel):
