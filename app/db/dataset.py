@@ -2,9 +2,17 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
 from pydantic import BaseModel, ValidationError, validator, Field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from app.utils.helpers import PyObjectId
+from enum import Enum
 
+class ProgressStep(Enum):
+    PARSING = ["Parsing the file", 20]
+    LABELING = ["Extracting labels", 40]
+    CREATING_DATASET = ["Creating dataset", 60]
+    UPLOADING_DATASET = ["Syncing Timeseries with DB", 80]
+    COMPLETE = ["Complete", 100]
+    
 class SamplingRate(BaseModel):
     mean: float
     var: float
@@ -14,6 +22,8 @@ class TimeSeries(BaseModel):
     start: int | None = None
     end: int | None = None
     unit: str = Field(default="")
+    scaling: float = Field(default=1.0)
+    offset: float = Field(default=0.0)
     name: str
     samplingRate: SamplingRate | None = None
     length: int | None = None
@@ -35,10 +45,10 @@ class DatasetSchema(BaseModel):
     projectId: PyObjectId
     name: str
     metaData: Dict[str, str] = Field(default={})
-    timeSeries: List[TimeSeries]
+    timeSeries: List[TimeSeries] = Field(default=[])
     labelings: List[DatasetLabeling] = Field(default=[])
     userId: PyObjectId
-
+    progressStep: List[Union[str, int]] = Field(default=ProgressStep.PARSING.value)
 
 class DatasetDBManager:
 
@@ -71,7 +81,18 @@ class DatasetDBManager:
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
         return dataset
-
+    
+    def partialUpdate(self, id, project_id, updates: dict):
+        self.ds_collection.update_one(
+            {"_id": ObjectId(id), "projectId": ObjectId(project_id)},
+            {"$set": updates}
+        )
+        
+    def updateTimeSeriesUnitConfig(self, dataset_id, timeSeries_id, project_id, unit, scaling, offset):
+        query = {"_id": ObjectId(dataset_id), "timeSeries._id": ObjectId(timeSeries_id), "projectId": ObjectId(project_id)}
+        update = {"$set": {"timeSeries.$.unit": unit, "timeSeries.$.scaling": float(scaling), "timeSeries.$.offset": float(offset)}}
+        update_result = self.ds_collection.update_one(query, update)
+        
     def deleteProject(self, project):
         self.ds_collection.delete_many({"_id": ObjectId(project)})
 

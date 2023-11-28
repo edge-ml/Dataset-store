@@ -53,30 +53,40 @@ class CsvParser():
             print("no data")
             return None, None, None, None, None, None, None
 
-        # TODO: Fix deletion
-        # removed_timeseries = []
-        # removed_labelings = []
-        # for ts in ts_config:
-        #     if ts['removed']:
-        #         removed_timeseries.append(sensor_start_idx + ts['index'])
-        # for labeling in labeling_config:
-        #     if labeling['removed']:
-        #         removed_labelings.extend(
-        #             [sensor_end_idx + index for index in labeling['indices']])
-
-        # # remove unused columns to speed up
-        # data = np.delete(data, removed_timeseries + removed_labelings, axis=1)
-
-        # update values after removal
-        # header = data[0]
-        # data = data[1:]
-
-
+        for ts in ts_config:
+            if ts['removed']:
+                name = ts["originalName"]
+                unit = ts["originalUnit"]
+                column_name = f'sensor_{name}[{unit}]'
+                if column_name not in self.df.columns:
+                    column_name = f'sensor_{name}'
+                self.df.drop(column_name, axis=1, inplace=True)
+                
+        for labeling in labeling_config:
+            if labeling['removed']:
+                for label in labeling['labels']:
+                    column_name = f'label_{labeling["originalName"]}_{label}'
+                    self.df.drop(column_name, axis=1, inplace=True)
+        
         self.df.sort_values(by='time', inplace=True)
 
         # extract sensor data
         sensor_mask = [s for s in self.df.columns if s.startswith('sensor_')]
-        sensor_data = self.df[sensor_mask]
+        sensor_data = self.df[sensor_mask].copy()
+        
+        # apply scaling and offset for each timeseries
+        scaling_offset = {}
+        for ts in config['timeSeries']:
+            if (ts['removed']):
+                continue
+            name = ts['originalName']
+            scaling_offset[name] = (ts['originalUnit'], float(ts['scale']), float(ts['offset']))
+        
+        for name, (unit, scale, offset) in scaling_offset.items():
+            column_name = f'sensor_{name}[{unit}]'
+            if column_name not in sensor_data.columns:
+                column_name = f'sensor_{name}'
+            sensor_data.loc[:, column_name] = sensor_data.loc[:, column_name] * scale + offset
 
         # extract label data
         label_mask = [s for s in self.df.columns if s.startswith('label_')]
@@ -86,12 +96,9 @@ class CsvParser():
         # remove 'sensor_' prefix
         sensor_names = [s[7:] for s in sensor_mask]
 
-        # extract units at the end from square brackets example: sensor_accX[unit]
+        # parse units from config
         unit_pattern = r'\[([^\[\]]*)\]$'
-        units = [
-            re.search(unit_pattern, s).group(1)
-            if re.search(unit_pattern, s) else '' for s in sensor_names
-        ]
+        units = [ts['unit'] for ts in config['timeSeries']]
 
         # remove unit suffix from sensor names
         sensor_names = [re.sub(unit_pattern, '', s) for s in sensor_names]
