@@ -22,8 +22,6 @@ class TimeSeries(BaseModel):
     start: int | None = None
     end: int | None = None
     unit: str = Field(default="")
-    scaling: float = Field(default=1.0)
-    offset: float = Field(default=0.0)
     name: str
     samplingRate: SamplingRate | None = None
     length: int | None = None
@@ -87,7 +85,14 @@ class DatasetDBManager:
             {"_id": ObjectId(id), "projectId": ObjectId(project_id)},
             {"$set": updates}
         )
-        
+    
+    def updateTimeSeriesUnit(self, id, timeSeriesId, project_id, unit):
+        query = {"_id": ObjectId(id), "projectId": ObjectId(project_id), "timeSeries._id": ObjectId(timeSeriesId)}
+        print("unit:", unit)
+        update = {"$set": {"timeSeries.$.unit": unit}}
+        result = self.ds_collection.update_one(query, update)
+        print(result)
+
     def updateTimeSeriesUnitConfig(self, dataset_id, timeSeries_id, project_id, unit, scaling, offset):
         query = {"_id": ObjectId(dataset_id), "timeSeries._id": ObjectId(timeSeries_id), "projectId": ObjectId(project_id)}
         update = {"$set": {"timeSeries.$.unit": unit, "timeSeries.$.scaling": float(scaling), "timeSeries.$.offset": float(offset)}}

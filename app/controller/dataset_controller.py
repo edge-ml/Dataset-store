@@ -164,7 +164,7 @@ class DatasetController():
     def updateUnitConfig(self, dataset_id, timeSeries_id, project_id, unit, scaling, offset):
         scaling = float(scaling)
         offset = float(offset)
-        self.dbm.partialUpdate(dataset_id, project_id, {"unit": unit})
+        self.dbm.updateTimeSeriesUnit(dataset_id, timeSeries_id, project_id, unit)
         binStore = BinaryStore(timeSeries_id)
         binStore.loadSeries()
         d = binStore.getFull()
