@@ -16,9 +16,6 @@ class PyObjectId(ObjectId):
 
     @classmethod
     def validate(cls, v, c):
-        print(v)
-        print(c)
-        print("*"*50)
         if not ObjectId.is_valid(v):
             raise ValueError('Invalid objectid')
         return ObjectId(v)
