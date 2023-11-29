@@ -110,3 +110,10 @@ class DatasetDBManager:
         update = {"$set": {"labelings.$[].labels.$[label]": newLabel}}
         array_filters = [{"label._id": label_Id}]
         self.ds_collection.update_one(query, update, array_filters=array_filters, upsert=True)
+
+    def updateTimeSeriesUnit(self, id, timeSeriesId, project_id, unit):
+        query = {"_id": ObjectId(id), "projectId": ObjectId(project_id), "timeSeries._id": ObjectId(timeSeriesId)}
+        print("unit:", unit)
+        update = {"$set": {"timeSeries.$.unit": unit}}
+        result = self.ds_collection.update_one(query, update)
+        print(result)

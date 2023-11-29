@@ -110,3 +110,10 @@ async def appendToDataset(id, body: Request, project: str = Header(...), user_da
     except Exception as e:
         print(e)
         print(traceback.format_exc())
+
+# Update the timeseries unit config of dataset
+@router.put("/{dataset_id}/changeUnitConfig")
+async def updateUnitConfig(dataset_id, tsId, unit, scaling, offset, project: str = Header(...), user_data=Depends(validate_user)):
+    print("Update unit", tsId, unit, scaling, offset)
+    ctrl.updateUnitConfig(dataset_id, tsId, project, unit, scaling, offset)
+    return {"message": "success"}
