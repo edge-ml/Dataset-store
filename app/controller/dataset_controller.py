@@ -207,6 +207,18 @@ class DatasetController():
         self.dbm.updateDataset(id, project, dataset=dataset)
         return
 
+    def updateUnitConfig(self, dataset_id, timeSeries_id, project_id, unit, scaling, offset):
+        scaling = float(scaling)
+        offset = float(offset)
+        self.dbm.updateTimeSeriesUnit(dataset_id, timeSeries_id, project_id, unit)
+        binStore = BinaryStore(timeSeries_id)
+        binStore.loadSeries()
+        d = binStore.getFull()
+        data = d["data"] * scaling + offset
+        binStore.data_arr = data
+        binStore.saveSeries()
+        return True
+
     def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str):
         name = config['name'] if config['name'] else (
             file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
