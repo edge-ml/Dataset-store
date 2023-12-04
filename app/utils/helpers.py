@@ -15,7 +15,7 @@ class PyObjectId(ObjectId):
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
+    def validate(cls, v, validation_info):
         if not ObjectId.is_valid(v):
             raise ValueError('Invalid objectid')
         return ObjectId(v)

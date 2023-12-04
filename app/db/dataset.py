@@ -11,12 +11,12 @@ class SamplingRate(BaseModel):
 
 class TimeSeries(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    start: Optional[int]
-    end: Optional[int]
+    start: Optional[int] = None
+    end: Optional[int] = None
     unit: str = Field(default="")
     name: str
-    samplingRate: Optional[SamplingRate]
-    length: Optional[int]
+    samplingRate: Optional[SamplingRate] = None
+    length: Optional[int] = None
 
 
 class DatasetLabel(BaseModel):

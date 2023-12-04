@@ -37,7 +37,7 @@ class TimeSeriesDataModel(BaseModel):
 
 class IncrementUploadModal(BaseModel):
     data: List[TimeSeriesDataModel]    
-    labeling: Optional[InitDatasetModalLabeling]
+    labeling: Optional[InitDatasetModalLabeling] = None
 
 
 

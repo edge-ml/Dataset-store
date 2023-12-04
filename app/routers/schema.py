@@ -10,7 +10,7 @@ class TimeSeries(BaseModel):
     end: int
     unit: str = Field(default="")
     name: str
-    data: Optional[List]
+    data: Optional[List] = None
 
 class DatasetLabels(BaseModel):
     start: int

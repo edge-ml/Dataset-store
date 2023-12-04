@@ -48,8 +48,8 @@ class FileDescriptor(BaseModel):
 class CSVDatasetInfo(BaseModel):
     name: str
     files: List[FileDescriptor]
-    labeling: Optional[CsvLabeling]
-    metaData: Optional[Dict[str, str]]
+    labeling: Optional[CsvLabeling] = None
+    metaData: Optional[Dict[str, str]] = None
     saveRaw: bool = Field(default=False)
 
 
