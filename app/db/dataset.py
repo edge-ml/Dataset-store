@@ -71,8 +71,8 @@ class DatasetDBManager:
         skip_count = (page - 1) * page_size
         query = {"projectId": ObjectId(project_id)}
         pipeline = []
-
         #filter for labelings and labels
+        print(filters)
         if filters and 'labelings' in filters:
             pipeline.append({
                 "$match": {
@@ -80,8 +80,8 @@ class DatasetDBManager:
                         query,
                         {
                             "$or": [
-                                {"labelings": {"$elemMatch": {"labelingId": {"$in": filters.labelings.target_labeling_ids}}}},
-                                {"labelings.labels": {"$elemMatch": {"id": {"$in": filters.labelings.target_label_ids}}}}
+                                {"labelings": {"$elemMatch": {"labelingId": {"$in":  [ObjectId(id_str) for id_str in filters['labelings']['target_labeling_ids']]}}}},
+                                {"labelings.labels": {"$elemMatch": {"type": {"$in": [ObjectId(id_str) for id_str in filters['labelings']['target_label_ids']]}}}}
                             ]          
                         }
                     ]
@@ -89,7 +89,7 @@ class DatasetDBManager:
             })
         #no filters applied
         else:
-            pipeline.append({"$match": {"projectId": ObjectId(project_id)}})
+            pipeline.append({"$match": query})
 
         #count ds at this stage
         pipeline.append( {"$facet": {
@@ -127,8 +127,9 @@ class DatasetDBManager:
         
         #ds count and datasets
         result = list(self.ds_collection.aggregate(pipeline))
+        print(result)
         datasets = result[0]["datasets"]
-        total_count = result[0]["count"][0]["count"] if result and "count" in result[0] else 0
+        total_count = result[0]["count"] 
 
         return datasets, total_count
         

@@ -50,9 +50,8 @@ async def getDatasetsInProjectWithPagination(
     user_data=Depends(validate_user),
 ):
     body = await request.json()
-    print(body)
-    filters = []
-    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, page, page_size, sort, filters)
+    #print(body)
+    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, page, page_size, sort, body.get('filters', {}))
     response_data = {
         "datasets": datasets,
         "total_datasets": total_count
