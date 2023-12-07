@@ -428,8 +428,8 @@ class DatasetController():
         for ts in timeSeries:
             binStore = BinaryStore(ts["_id"])
             binStore.loadSeries()
-            ts_data = binStore.getFull()
-            df = pd.DataFrame(ts_data)
+            df = binStore.getFull()
+            df = pd.DataFrame(df)
             if final_df is None:
                 final_df = df
             else:
