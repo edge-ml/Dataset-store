@@ -4,6 +4,7 @@ from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
 from pydantic import BaseModel, ValidationError, validator, Field
 from typing import Dict, List, Optional
 from app.utils.helpers import PyObjectId
+import re
 
 class SamplingRate(BaseModel):
     mean: float
@@ -72,7 +73,6 @@ class DatasetDBManager:
         query = {"projectId": ObjectId(project_id)}
         pipeline = []
         #filter for labelings and labels
-        print(filters)
         if filters and 'labelings' in filters:
             pipeline.append({
                 "$match": {
@@ -87,8 +87,34 @@ class DatasetDBManager:
                     ]
                 }
             })
+        elif filters and 'filterEmptyDatasets':
+            pipeline.append({
+                "$match": {
+                    "$and": [
+                        query,
+                        {
+                            "$or": [
+                               {"timeSeries": {"$exists": False}}, 
+                               {"timeSeries": {"$size": 0}}  
+                            ]          
+                        }
+                    ]
+                }
+            })
+
+        elif filters and 'filterByName':
+             search_string = re.escape(filters['filterByName'])
+             regex_pattern = f".*{search_string}.*"
+             pipeline.append({
+                "$match": {
+                    "$and": [
+                        query,
+                        {"name": {"$regex": regex_pattern, "$options": "i"}}
+                        ]
+                    }
+            })
         #no filters applied
-        else:
+        else: 
             pipeline.append({"$match": query})
 
         #count ds at this stage
@@ -129,11 +155,11 @@ class DatasetDBManager:
         result = list(self.ds_collection.aggregate(pipeline))
         print(result)
         datasets = result[0]["datasets"]
-        total_count = result[0]["count"] 
-
+        total_count = 0
+        if result and result[0].get("count"):
+            total_count = result[0]["count"][0]["count"]
         return datasets, total_count
-        
-    
+
     def updateDataset(self, id, project_id, dataset):
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
