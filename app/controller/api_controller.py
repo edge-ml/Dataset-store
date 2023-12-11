@@ -6,6 +6,7 @@ from app.controller.label_controller import createLabel
 from app.utils.helpers import random_hex_color
 from bson.objectid import ObjectId
 import traceback
+import numpy as np
 
 dbm = DatasetDBManager()
 ctrl = DatasetController()
@@ -23,15 +24,15 @@ def initDataset(name, timeSeries, metaData, userId, projectId):
 def appendDataset(uploadData, userId, projectId, dataset_id):
     try:
         labeling = uploadData.labeling
-        timeSeries = uploadData.data
+        timeSeries = [{'name': ts.name, 'data': np.array(ts.data)} for ts in uploadData.data]
         # Create the labeling
         dataset = dbm.getDatasetById(dataset_id=dataset_id, project_id=projectId)
         name_to_id = {x["name"]: x["_id"] for x in dataset["timeSeries"]}
         for ts in timeSeries:
-            id = name_to_id[ts.name]
+            id = name_to_id[ts["name"]]
             binStore = BinaryStore(id)
             binStore.loadSeries()
-            start, end, sampling_rate, length  = binStore.append(ts.data)
+            start, end, sampling_rate, length  = binStore.append(ts["data"])
             index = next((i for i, item in enumerate(dataset["timeSeries"]) if item["_id"] == id), -1)
             dataset["timeSeries"][index]["length"] = length
             dataset["timeSeries"][index]["samplingRate"] = sampling_rate

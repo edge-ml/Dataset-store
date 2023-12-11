@@ -21,6 +21,7 @@ import pandas as pd
 from app.db.labelings import LabelingDBManager
 from io import BytesIO
 from app.internal.config import RAW_UPLOAD_DATA
+import numpy as np
 
 class FileDescriptor(BaseModel):
     name: str
@@ -41,8 +42,8 @@ class CsvLabeling(BaseModel):
 class CSVDatasetInfo(BaseModel):
     name: str
     files: List[FileDescriptor]
-    labeling: Optional[CsvLabeling]
-    metaData: Optional[Dict[str, str]]
+    labeling: CsvLabeling | None = None
+    metaData: Dict[str, str] | None = None
     saveRaw: bool = Field(default=False)
 
 class EdgeMLCSVDatasetInfo(BaseModel):
@@ -91,6 +92,7 @@ class DatasetController():
 
 
     def addDataset(self, dataset, project, user_id=None):
+        print("Add dataset")
         datasetMeta = dataset
         datasetMeta["projectId"] = ObjectId(project)
         if user_id is not None:
@@ -298,7 +300,7 @@ class DatasetController():
                 'start': timestamps[0],
                 'end': timestamps[-1],
                 'unit': units[sensor_idx],
-                'data': zip(timestamps, sensor_data.iloc[:, sensor_idx]) # TODO: remove list to increase performance
+                'data': np.column_stack((timestamps, sensor_data.iloc[:, sensor_idx]))
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat
         }

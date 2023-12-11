@@ -66,7 +66,6 @@ def downloadProject(downloadId, project):
     fileNameCtr = {}
     datasets = dataset_db.getDatasetsInProjet(project)
     datasets = [d["_id"] for d in datasets]
-    print("Saving datasets: ", datasets)
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         with zipfile.ZipFile(temp_file, "a", zipfile.ZIP_DEFLATED, False) as file:
             for id in datasets:

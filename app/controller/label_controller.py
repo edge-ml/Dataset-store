@@ -17,6 +17,8 @@ def _checkLabelOverlap(dataset, label, labelingId):
         
 
 def createLabel(dataset_id, project_id, labelingId, label):
+    label["start"] = int(label["start"])
+    label["end"] = int(label["end"])
     dataset = dbm.getDatasetById(dataset_id, project_id)
     containsLabeling = any([ObjectId(x["labelingId"]) == ObjectId(labelingId) for x in dataset["labelings"]])
     if not containsLabeling:
