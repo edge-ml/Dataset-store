@@ -68,6 +68,11 @@ class CsvParser():
                     column_name = f'label_{labeling["originalName"]}_{label}'
                     self.df.drop(column_name, axis=1, inplace=True)
         
+        # handle comma separated sensor values
+        for column in self.df.columns:
+            if column.startswith('sensor_') and self.df[column].dtype == 'object' and self.df[column].str.contains(',').any():
+                self.df[column] = self.df[column].str.replace(',', '.').astype(float)
+
         self.df.sort_values(by='time', inplace=True)
 
         # extract sensor data
@@ -92,7 +97,6 @@ class CsvParser():
         label_mask = [s for s in self.df.columns if s.startswith('label_')]
         label_data = self.df[label_mask]
 
-
         # remove 'sensor_' prefix
         sensor_names = [s[7:] for s in sensor_mask]
 
@@ -113,9 +117,7 @@ class CsvParser():
         labelings = {}
 
         for labeling_label in labeling_label_list:
-            labeling, label = labeling_label.split('_')
-            # modify labeling according to the config
-            # TODO: implement the corresponding functionality in frontend to modify labelings?
+            labeling, label = labeling_label.split('_', maxsplit=1)
             labeling = next(x for x in labeling_config
                             if x['originalName'] == labeling)['name']
             if labeling not in labelings:
