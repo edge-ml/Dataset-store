@@ -76,6 +76,9 @@ class DatasetDBManager:
         datasets = self.ds_collection.find({"projectId": ObjectId(project_id)})
         return datasets
     
+    def getDatasetsByUserId(self, user_id):
+        return self.ds_collection.find({"userId": ObjectId(user_id)})
+    
     def getDatasetsInProjectByPage(self, project_id, page, page_size, sort, filters):
         # Calculate the number of datasets to skip to reach the desired page
         skip_count = (page - 1) * page_size
@@ -193,8 +196,10 @@ class DatasetDBManager:
         update_result = self.ds_collection.update_one(query, update)
         
     def deleteProject(self, project):
-        self.ds_collection.delete_many({"_id": ObjectId(project)})
-
+        self.ds_collection.delete_many({"projectId": ObjectId(project)})
+        
+    def deleteByUserId(self, user_id):
+        self.ds_collection.delete_many({"userId": ObjectId(user_id)})
 
     # For modifying dataset-labels
 

@@ -341,7 +341,21 @@ class DatasetController():
                 binStore = BinaryStore(d)
                 binStore.delete()
         self.dbm.deleteProject(project)
+        
+    # returns the projects where the user is owner
+    def deleteUserDatasets(self, user_id):
+        datasets = self.dbm.getDatasetsByUserId(user_id)
+        projects = set()
+        for dataset in datasets:
+            projects.add(dataset["projectId"])
+            timeSeriesIDs = [x["_id"] for x in dataset["timeSeries"]]
 
+            for d in timeSeriesIDs:
+                binStore = BinaryStore(d)
+                binStore.delete()
+        
+        self.dbm.deleteByUserId(user_id)
+        return list(projects)
 
     # Upload whole datasets
     async def receiveFileInfoAndCSV(self, websocket, projectId, userId, dataModel = CSVDatasetInfo):

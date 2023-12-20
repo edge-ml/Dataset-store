@@ -67,5 +67,8 @@ class LabelingDBManager:
     def delete(self, project, id):
         self.col.delete_one({"projectId": ObjectId(project), "_id": ObjectId(id)})
 
-    def deleteProject(self, project):
-        self.col.delete_many({"project_id": ObjectId(project)})
+    def deleteProjects(self, projects):
+        try:
+            result = self.col.delete_many({"projectId": {"$in": projects}})
+        except Exception as e:
+            print(f"An error occurred: {e}")

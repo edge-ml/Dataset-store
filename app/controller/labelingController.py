@@ -43,5 +43,5 @@ def deleteLabeling(project, id):
     onLabelingDeleted(project, id)
     return res
 
-def deleteProjectLabeling(project):
-    return dbm.deleteProject(project)
+def deleteProjectLabeling(projects):
+    return dbm.deleteProjects(projects)
