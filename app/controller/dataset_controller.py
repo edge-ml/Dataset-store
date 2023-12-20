@@ -232,10 +232,10 @@ class DatasetController():
         self.dbm.updateDataset(id, project, dataset=dataset)
         return
 
-    def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str):
+    def CSVUpload(self, file: UploadFile, config: dict, metadata: dict, project: str, user_id: str):
         name = config['name'] if config['name'] else (
             file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
-        df = pd.read_csv(file.file)
+        df = pd.read_csv(file.file, skiprows=len(metadata))
         df.columns = df.columns.str.strip()
         parser = CsvParser(df=df)
         timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format(config)
@@ -302,10 +302,11 @@ class DatasetController():
                 'unit': units[sensor_idx],
                 'data': np.column_stack((timestamps, sensor_data.iloc[:, sensor_idx]))
             } for sensor_idx, sensor in enumerate(sensor_names)],
-            'labelings': labelingsInDatasetFormat
+            'labelings': labelingsInDatasetFormat,
+            'metaData': metadata,
         }
-        metadata = self.addDataset(dataset, project=project, user_id=user_id)
-        return metadata
+        upload_result = self.addDataset(dataset, project=project, user_id=user_id)
+        return upload_result
 
     def externalUpload(self, api_key, user_id, body):
         # Get labels from dataset

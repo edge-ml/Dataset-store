@@ -30,15 +30,16 @@ async def createDataset(body: Request, project: str = Header(...), user_data=Dep
 # Create dataset from csv file
 # TODO: handle labels
 @router.post("/create")
-async def createDataset(CSVFile: UploadFile = File(...), CSVConfig: str = Form(...), project: str = Header(...), user_data = Depends(validate_user)):
+async def createDataset(CSVFile: UploadFile = File(...), CSVConfig: str = Form(...), metadata: str = Form(...), project: str = Header(...), user_data = Depends(validate_user)):
     (user_id, _, _) = user_data
-    metadata = None
+    upload_result = None
     config = json.loads(CSVConfig)
+    metadata = json.loads(metadata)
     try:
-        metadata = ctrl.CSVUpload(CSVFile, config, project, user_id)
+        upload_result = ctrl.CSVUpload(CSVFile, config, metadata, project, user_id)
     except Exception as exp:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
-    return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")
+    return Response(json.dumps(upload_result, cls=JSONEncoder), media_type="application/json")
 
 @router.post("/view")
 async def getDatasetsInProjectWithPagination(
