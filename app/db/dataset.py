@@ -89,17 +89,27 @@ class DatasetDBManager:
             })
         elif filters and 'filterEmptyDatasets':
             pipeline.append({
-                "$match": {
-                    "$and": [
-                        query,
-                        {
-                            "$or": [
-                               {"timeSeries": {"$exists": False}}, 
-                               {"timeSeries": {"$size": 0}}  
-                            ]          
+                 "$match": {
+            "$and": [
+                query,
+                {
+                    "$expr": {
+                        "$allElementsTrue": {
+                            "$map": {
+                                "input": "$timeSeries",
+                                "as": "elm",
+                                "in": {
+                                    "$or": [
+                                        {"$eq": ["$$elm.length", 0]},
+                                        {"$eq": ["$$elm.length", None]},
+                                    ]
+                                }
+                            }
                         }
-                    ]
-                }
+                    }
+                },
+            ]
+        }
             })
 
         elif filters and 'filterByName':
@@ -158,6 +168,7 @@ class DatasetDBManager:
         total_count = 0
         if result and result[0].get("count"):
             total_count = result[0]["count"][0]["count"]
+        #print(datasets)
         return datasets, total_count
 
     def updateDataset(self, id, project_id, dataset):
