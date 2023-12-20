@@ -112,16 +112,19 @@ class DatasetDBManager:
                 }
             })
         elif filters and 'filterByName' in filters:
-            search_string = re.escape(filters['filterByName'])
-            regex_pattern = f".*{search_string}.*"
-            pipeline.append({
-                "$match": {
-                    "$and": [
-                        query,
-                        {"name": {"$regex": regex_pattern, "$options": "i"}}
-                        ]
-                    }
-            })
+            if(filters['filterByName']):
+                search_string = re.escape(filters['filterByName'])
+                regex_pattern = f".*{search_string}.*"
+                pipeline.append({
+                    "$match": {
+                        "$and": [
+                         query,
+                         {"name": {"$regex": regex_pattern, "$options": "i"}}
+                         ]
+                        }
+                })
+            else:
+                pipeline.append({"$match": query})
         #no filters applied
         else: 
             pipeline.append({"$match": query})
