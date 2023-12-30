@@ -101,9 +101,6 @@ async def deleteDatasetById(id, project: str = Header(...), user_data=Depends(va
 @router.put("/{id}")
 async def updateDatasetById(id, body: Request, project: str = Header(...), user_data=Depends(validate_user)):
     body = await body.json()
-    body['projectId'] = project
-    body['userId'] = user_data[0]
-    body['metaData'] = {}
     ctrl.updateDataset(id, project, body)
     return {"message": "success"}
 
