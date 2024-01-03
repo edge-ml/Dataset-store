@@ -96,32 +96,44 @@ class DatasetDBManager:
                     ]
                 }
             })
-        elif filters and 'filterEmptyDatasets':
+        elif filters and 'filterEmptyDatasets' in filters:
             pipeline.append({
                 "$match": {
                     "$and": [
                         query,
                         {
-                            "$or": [
-                               {"timeSeries": {"$exists": False}}, 
-                               {"timeSeries": {"$size": 0}}  
-                            ]          
-                        }
+                            "$expr": {
+                                "$allElementsTrue": {
+                                    "$map": {
+                                        "input": "$timeSeries",
+                                        "as": "elm",
+                                        "in": {
+                                            "$or": [
+                                                {"$eq": ["$$elm.length", 0]},
+                                                {"$eq": ["$$elm.length", None]},
+                                            ]
+                                        },
+                                    }
+                                }
+                            }
+                        },
                     ]
                 }
             })
-
-        elif filters and 'filterByName':
-             search_string = re.escape(filters['filterByName'])
-             regex_pattern = f".*{search_string}.*"
-             pipeline.append({
-                "$match": {
-                    "$and": [
-                        query,
-                        {"name": {"$regex": regex_pattern, "$options": "i"}}
-                        ]
-                    }
-            })
+        elif filters and 'filterByName' in filters:
+            if(filters['filterByName']):
+                search_string = re.escape(filters['filterByName'])
+                regex_pattern = f".*{search_string}.*"
+                pipeline.append({
+                    "$match": {
+                        "$and": [
+                         query,
+                         {"name": {"$regex": regex_pattern, "$options": "i"}}
+                         ]
+                        }
+                })
+            else:
+                pipeline.append({"$match": query})
         #no filters applied
         else: 
             pipeline.append({"$match": query})
@@ -162,7 +174,6 @@ class DatasetDBManager:
         
         #ds count and datasets
         result = list(self.ds_collection.aggregate(pipeline))
-        print(result)
         datasets = result[0]["datasets"]
         total_count = 0
         if result and result[0].get("count"):
