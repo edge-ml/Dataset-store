@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.routers import dataset, deviceApi, label, labelings, csv
+from routers import dataset, deviceApi, label, labelings, csv
 
 router = APIRouter()
 
@@ -11,6 +11,7 @@ router.include_router(
 router.include_router(
     dataset.router,
     prefix='/datasets',
+    tags=["datasets"]
 )
 
 router.include_router(

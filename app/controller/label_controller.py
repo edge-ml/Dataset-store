@@ -1,4 +1,4 @@
-from app.db.dataset import DatasetDBManager
+from db.dataset import DatasetDBManager
 from bson.objectid import ObjectId
 from fastapi import HTTPException
 from bson.objectid import ObjectId

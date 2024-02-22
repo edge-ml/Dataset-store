@@ -1,10 +1,10 @@
 from fastapi.param_functions import Depends
-import jwt
+from jwt import decode, InvalidSignatureError, ExpiredSignatureError
 from bson.objectid import ObjectId
 from fastapi import status, Header, HTTPException
-from app.db.project import ProjectDBManager
-from app.internal.config import SECRET_KEY
-from app.db.deviceAPi import DeviceApiManager
+from db.project import ProjectDBManager
+from internal.config import SECRET_KEY
+from db.deviceAPi import DeviceApiManager
 
 project_dbm = ProjectDBManager()
 deviceApi_dbm = DeviceApiManager()
@@ -15,21 +15,21 @@ async def extract_project_id(project: str = Header(...)):
 async def validate_user(Authorization: str = Header(...), project_id=Depends(extract_project_id)):
     try:
         token = Authorization.split(" ")[1]
-        decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        decoded = decode(token, SECRET_KEY, algorithms=["HS256"])
         if "exp" not in decoded:
-            raise jwt.ExpiredSignatureError
+            raise ExpiredSignatureError
         user_id = ObjectId(decoded["id"])
         sub_level = decoded.get("subscriptionLevel")
         project = project_dbm.get_project(project_id)
         if not project:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
-        if project['admin'] != user_id and user_id not in project['users']:
+        if str(project['admin']) != str(user_id) and str(user_id) not in project['users']:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User unauthorized on project")
         return (user_id, token, sub_level)
-    except jwt.InvalidSignatureError as e:
+    except InvalidSignatureError as e:
         print(e)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
-    except jwt.ExpiredSignatureError:
+    except ExpiredSignatureError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Token expired")
     
 

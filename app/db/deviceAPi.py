@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from app.internal.config import MONGO_URI, DEVICE_API_COLLNAME, PROJECT_DBNAME
+from internal.config import MONGO_URI, DEVICE_API_COLLNAME, PROJECT_DBNAME
 from pydantic import BaseModel, ValidationError, validator, Field
 from typing import Dict, List
 

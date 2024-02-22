@@ -1,9 +1,9 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from app.internal.config import MONGO_URI, PROJECT_COLLNAME, PROJECT_DBNAME, LABELING_COLLNAME, DATASTORE_DBNAME
+from internal.config import MONGO_URI, PROJECT_COLLNAME, PROJECT_DBNAME, LABELING_COLLNAME, DATASTORE_DBNAME
 from pydantic import BaseModel, ValidationError, validator, Field
 from typing import Dict, List
-from app.utils.helpers import PyObjectId
+from utils.helpers import PyObjectId
 
 
 class LabelModel(BaseModel):

@@ -1,9 +1,9 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
+from internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
 from pydantic import BaseModel, ValidationError, validator, Field
 from typing import Dict, List, Optional, Union
-from app.utils.helpers import PyObjectId
+from utils.helpers import PyObjectId
 from enum import Enum
 import re
 

@@ -1,26 +1,26 @@
 from io import StringIO
-from app.db.dataset import DatasetDBManager
+from db.dataset import DatasetDBManager
 from .binary_store import BinaryStore
 from typing import Union
 from bson.objectid import ObjectId
 import time
 import os
 from fastapi import HTTPException, status
-from app.utils.helpers import custom_index
-from app.db.deviceAPi import DeviceApiManager
+from utils.helpers import custom_index
+from db.deviceAPi import DeviceApiManager
 import requests
 import random
-from app.controller.labelingController import createLabeling
+from controller.labelingController import createLabeling
 from fastapi import UploadFile
-from app.utils.CsvParser import CsvParser
+from utils.CsvParser import CsvParser
 import traceback
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
 import json
 import pandas as pd
-from app.db.labelings import LabelingDBManager
+from db.labelings import LabelingDBManager
 from io import BytesIO
-from app.internal.config import RAW_UPLOAD_DATA
+from internal.config import RAW_UPLOAD_DATA
 import numpy as np
 
 class FileDescriptor(BaseModel):

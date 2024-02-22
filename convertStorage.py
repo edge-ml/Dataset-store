@@ -1,8 +1,8 @@
 import argparse
 import glob
 from tqdm import tqdm
-from app.dataLoader.FileSystemDataLoader import FileSystemDataLoader
-from app.dataLoader.S3DataLoader import S3DataLoader
+from dataLoader.FileSystemDataLoader import FileSystemDataLoader
+from dataLoader.S3DataLoader import S3DataLoader
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Process files and save data to S3')

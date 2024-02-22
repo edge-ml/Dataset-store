@@ -3,7 +3,7 @@ from enum import Enum
 import pandas as pd
 import re
 
-from app.utils.helpers import parseTime
+from utils.helpers import parseTime
 
 class CSVFormat(Enum):
     EDGEML = "edgeml"
