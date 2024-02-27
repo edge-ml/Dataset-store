@@ -1,14 +1,11 @@
 from io import StringIO
 from db.dataset import DatasetDBManager
 from .binary_store import BinaryStore
-from typing import Union
 from bson.objectid import ObjectId
-import time
 import os
 from fastapi import HTTPException, status
 from utils.helpers import custom_index
 from db.deviceAPi import DeviceApiManager
-import requests
 import random
 from controller.labelingController import createLabeling
 from fastapi import UploadFile
@@ -19,9 +16,11 @@ from typing import Dict, List, Optional
 import json
 import pandas as pd
 from db.labelings import LabelingDBManager
-from io import BytesIO
-from internal.config import RAW_UPLOAD_DATA
 import numpy as np
+from models.api import ReturnDataset
+
+# Typing
+from models.db import DatasetDBSchema
 
 class FileDescriptor(BaseModel):
     name: str
@@ -77,16 +76,8 @@ class DatasetController():
             data["timeSeries"][i]["_id"] = str(t["_id"])
         return data
 
-    def getDatasetById(self, dataset_id, project, onlyMeta=False):
-        # Read dataset from database
-        datasetMeta = self.dbm.getDatasetById(dataset_id, project)
-        if onlyMeta:
-            return datasetMeta
-        for t in datasetMeta["timeSeries"]:
-            binStore = BinaryStore(t["_id"])
-            binStore.loadSeries()
-            data = binStore.getFull()
-            t["data"] = [[x, y] for x, y in zip(data["time"].tolist(), data["data"].tolist())]
+    def getDatasetById(self, datasetId, projectId):
+        datasetMeta : DatasetDBSchema = self.dbm.getDatasetById(datasetId, projectId)
         return datasetMeta
 
 
@@ -122,29 +113,9 @@ class DatasetController():
             res.append(t)
         return res
 
-    def getDatasetInProject(self, projectId, includeTimeseriesData=False):
-        datasets = self.dbm.getDatasetsInProjet(projectId)
-        datasets = list(datasets)
-        if not includeTimeseriesData:
-            return datasets
-        
-        labelings = self.dbm_labeling.get(projectId)
-        labeling_mapping = {entry['_id']: entry['name'] for entry in labelings}
-        label_mapping = {}
-        for entry in labelings:
-            for label in entry['labels']:
-                label_mapping[label['_id']] = label['name']
-        datasets_with_timeseries = []
-        for dataset in datasets:
-            ds = self.getDatasetById(dataset['_id'], projectId, False)
-            ds['labelings'] = [{'labeling': labeling_mapping[labeling['labelingId']], 
-                    'labels': [{'start': label['start'], 
-                                'end': label['end'], 
-                                'label': label_mapping[label['type']]}
-                               for label in labeling['labels']]}
-                   for labeling in ds['labelings']]
-            datasets_with_timeseries.append(ds)
-        return datasets_with_timeseries
+    def getDatasetInProject(self, projectId, includeTimeseriesData=False) -> List[ReturnDataset]:
+        datasets : DatasetDBSchema = self.dbm.getDatasetsInProjet(projectId)
+        return datasets
     
     def getDatasetInProjectWithPagination(self, projectId, page, page_size, sort, filters, includeTimeseriesData=False):
         datasets, total_count = self.dbm.getDatasetsInProjectByPage(projectId, page, page_size, sort, filters)
@@ -187,28 +158,37 @@ class DatasetController():
     def updateDataset(self, id, projectId, dataset):
         return self.dbm.updateDataset(id, projectId, dataset)
 
-    def getDataSetByIdStartEnd(self, id, projectId, start, end, max_resolution):
-        dataset = self.dbm.getDatasetById(id, project_id=projectId)
-        ts_ids = [x["_id"] for x in dataset["timeSeries"]]
-        res = []
-        for t in ts_ids:
-            binStore = BinaryStore(t)
-            binStore.loadSeries()
-            d = binStore.getPart(start, end, max_resolution)
-            res.append(d)
-        return res
+    # def getDataSetByIdStartEnd(self, datasetId, timeSeriesId, projectId, start, end, max_resolution):
+    #     dataset = self.dbm.getDatasetById(id, project_id=projectId)
+    #     ts_ids = [x["_id"] for x in dataset["timeSeries"]]
+    #     res = []
+    #     for t in ts_ids:
+    #         binStore = BinaryStore(t)
+    #         binStore.loadSeries()
+    #         d = binStore.getPart(start, end, max_resolution)
+    #         res.append(d)
+    #     return res
+    
+    def getDataSetByIdStartEnd(self, datasetId, timeSeriesId, projectId, start, end, max_resolution):
+        dataset = self.dbm.getDatasetById(datasetId, projectId)
+        dataset_ids = [str(x.id) for x in dataset.timeSeries]
+        if (timeSeriesId not in dataset_ids):
+            raise HTTPException(status.HTTP_404_NOT_FOUND)
+        binStore = BinaryStore(timeSeriesId)
+        binStore.loadSeries()
+        return binStore.getPart(start, end, max_resolution)
 
-    def getDatasetTimeSeriesStartEnd(self, dataset_id, ts_id, project_id, start, end, max_resolution):
-        dataset = self.dbm.getDatasetById(dataset_id, project_id=project_id)
-        dataset_ids = [str(x["_id"]) for x in dataset["timeSeries"]]
-        res = []
-        for t in ts_id:
-            if str(t) not in dataset_ids:
-                raise HTTPException(status.HTTP_404_NOT_FOUND)
-            binStore = BinaryStore(t)
-            binStore.loadSeries()
-            res.append(binStore.getPart(start, end, max_resolution))
-        return res
+    # def getDatasetTimeSeriesStartEnd(self, dataset_id, ts_id, project_id, start, end, max_resolution):
+    #     dataset = self.dbm.getDatasetById(dataset_id, project_id=project_id)
+    #     dataset_ids = [str(x["_id"]) for x in dataset["timeSeries"]]
+    #     res = []
+    #     for t in ts_id:
+    #         if str(t) not in dataset_ids:
+    #             raise HTTPException(status.HTTP_404_NOT_FOUND)
+    #         binStore = BinaryStore(t)
+    #         binStore.loadSeries()
+    #         res.append(binStore.getPart(start, end, max_resolution))
+    #     return res
 
     def append(self, id, project, body, projectId):
         dataset = self.dbm.getDatasetById(id, project)

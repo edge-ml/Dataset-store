@@ -7,47 +7,11 @@ from utils.helpers import PyObjectId
 from enum import Enum
 import re
 
-class ProgressStep(Enum):
-    PARSING = ["Parsing the file", 20]
-    LABELING = ["Extracting labels", 40]
-    CREATING_DATASET = ["Creating dataset", 60]
-    UPLOADING_DATASET = ["Syncing Timeseries with DB", 80]
-    COMPLETE = ["Complete", 100]
-    
-class SamplingRate(BaseModel):
-    mean: float
-    var: float
 
-class TimeSeries(BaseModel):
-    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    start: int | None = None
-    end: int | None = None
-    unit: str = Field(default="")
-    name: str
-    samplingRate: SamplingRate | None = None
-    length: int | None = None
+# Typing
+from models.db import DatasetDBSchema
+from models.db.datasets import TimeSeries
 
-
-class DatasetLabel(BaseModel):
-    start: int
-    end: int
-    type: PyObjectId = Field(default_factory=ObjectId)
-    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    metaData: Dict[str, str] = Field(default={})
-
-class DatasetLabeling(BaseModel):
-    labelingId: PyObjectId = Field(default_factory=ObjectId)
-    labels: List[DatasetLabel]
-
-class DatasetSchema(BaseModel):
-    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    projectId: PyObjectId
-    name: str
-    metaData: Dict[str, str] = Field(default={})
-    timeSeries: List[TimeSeries] = Field(default=[])
-    labelings: List[DatasetLabeling] = Field(default=[])
-    userId: PyObjectId
-    progressStep: List[Union[str, int]] = Field(default=ProgressStep.PARSING.value)
 
 class DatasetDBManager:
 
@@ -58,7 +22,7 @@ class DatasetDBManager:
 
     def addDataset(self, dataset):
         print(dataset)
-        dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
+        dataset = DatasetDBSchema.parse_obj(dataset).dict(by_alias=True)
         self.ds_collection.insert_one(dataset)
         return dataset
 
@@ -69,11 +33,13 @@ class DatasetDBManager:
         ts = [x["_id"] for x in data["timeSeries"]]
         return ts
 
-    def getDatasetById(self, dataset_id, project_id):
-        return self.ds_collection.find_one({"_id": ObjectId(dataset_id), "projectId": ObjectId(project_id)})
+    def getDatasetById(self, dataset_id : PyObjectId, project_id : PyObjectId) -> DatasetDBSchema:
+        dataset =  self.ds_collection.find_one({"_id": ObjectId(dataset_id), "projectId": ObjectId(project_id)})
+        return DatasetDBSchema(**dataset)
 
-    def getDatasetsInProjet(self, project_id):
+    def getDatasetsInProjet(self, project_id) -> List[DatasetDBSchema]:
         datasets = self.ds_collection.find({"projectId": ObjectId(project_id)})
+        datasets = [DatasetDBSchema(**x) for x in datasets]
         return datasets
     
     def getDatasetsInProjectByPage(self, project_id, page, page_size, sort, filters):

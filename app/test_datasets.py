@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from main import app
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from bson.objectid import ObjectId
 from utils.helpers import PyObjectId
 from db.project import ProjectDBManager
@@ -33,8 +33,8 @@ class TestDatasts(unittest.TestCase):
     def setUp(self) -> None:
         self.mock_jwt_decode = patch("routers.dependencies.decode").start()
         self.mock_jwt_decode.return_value = fake_jwt_decoded
-        self.mock_get_project = patch("routers.dependencies.project_dbm.get_project").start()
-        self.mock_get_project.return_value = fake_project
+        # self.mock_get_project = patch("routers.dependencies.project_dbm.get_project").start()
+        # self.mock_get_project.return_value = fake_project
 
     def tearDown(self) -> None:
         patch.stopall()
@@ -46,9 +46,14 @@ class TestDatasts(unittest.TestCase):
 
 
     def test_get_datasets(self):
-        response = client.get("/ds/datasets", headers=headers)
-        print(response.json())
-        assert response.status_code == 200
+        with patch('db.project.ProjectDBManager') as mock:
+            instance = mock.return_value
+            instance.get_projects.return_value = fake_project
 
-    # def test_create_dataset(self):
+            print(instance.get_project(headers["project"]))
+
+            response = client.get("/ds/datasets", headers=headers)
+            print(response.json())
+            assert response.status_code == 200
+
 

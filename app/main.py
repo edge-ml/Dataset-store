@@ -1,7 +1,7 @@
 import uvicorn
 import argparse
 from contextlib import asynccontextmanager
-from routers import dataset, deviceApi, label, labelings, csv
+from routers import dataset, deviceApi, label, labelings, csv, timeSeries
 
 parser = argparse.ArgumentParser(description="Run the database-store")
 parser.add_argument('--env', default="dev", choices=["dev", "docker"])
@@ -27,15 +27,9 @@ class DatasetStore(FastAPI):
         app_info = {
             "title": "edge-ml dataset-store"
         }
-
-        # tags_metadata = {
-        #     "name": "datasets",
-        #     "description": "Allows to manage datasets"
-        # }
-
         super().__init__(*args, **{**app_info, **kwargs})
 
-        # TODO: adapt to specific origins
+
         self.add_middleware(
             CORSMiddleware,
             allow_origins=["*"],
@@ -48,32 +42,38 @@ class DatasetStore(FastAPI):
 
         self.include_router(
             dataset.router,
-            prefix='/ds/datasets',
+            prefix='/datasets',
             tags=["Datasets"]
         )
 
         self.include_router(
             csv.router,
-            prefix="/ds/download",
+            prefix="/download",
             tags=["Download"]
         )
 
         self.include_router(
             label.router,
-            prefix='/ds/datasets/labelings',
+            prefix='/datasets/labelings',
             tags=["DatasetLabelings"]
         )
 
         self.include_router(
             deviceApi.router,
-            prefix="/ds/api",
+            prefix="/api",
             tags=["API"]
         )
 
         self.include_router(
             labelings.router,
-            prefix="/ds/labelings",
+            prefix="/labelings",
             tags=["Labelings"]
+        )
+
+        self.include_router(
+            timeSeries.router,
+            prefix="/datasets/timeseries",
+            tags=["TimeSeries"]
         )
 
 

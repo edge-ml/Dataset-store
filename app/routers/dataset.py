@@ -1,38 +1,36 @@
 from fastapi import APIRouter, HTTPException, status, Request, Header, Response, Form, File, UploadFile
 from fastapi.param_functions import Depends, Query
 from utils.json_encoder import JSONEncoder
-from utils.CsvParser import CsvParser
 from routers.dependencies import validate_user
-from utils.helpers import PyObjectId
 import traceback
-import json
-import orjson
 from typing import List
+import json
+
+# Types
+from models.api import ReturnDataset
+from models.db import DatasetDBSchema
 
 from controller.dataset_controller import DatasetController
 
-from routers.schema import DatasetSchema
 
 router = APIRouter()
 
 ctrl = DatasetController()
 
-@router.get("/")
+
+
+
+@router.get("/", response_model=List[ReturnDataset])
 async def Get_datasets_metadata(project: str = Header(...), user_data=Depends(validate_user)):
-    data = ctrl.getDatasetInProject(project)
-    return Response(json.dumps(data, cls=JSONEncoder), media_type="application/json")
+    datasets : List[DatasetDBSchema] = ctrl.getDatasetInProject(project)
+    datasets : List[ReturnDataset] = [ReturnDataset(**x.model_dump(by_alias=True)) for x in datasets]
+    return datasets
 
-@router.get("/{id}")
+@router.get("/{id}", response_model=ReturnDataset)
 async def Get_single_dataset_metadata(id, project : str = Header(...), user_data=Depends(validate_user)):
-    dataset = ctrl.getDatasetById(id, project, onlyMeta=True)
-    return Response(json.dumps(dataset, cls=JSONEncoder), media_type="application/json")
-
-
-@router.get("/{id}/ts/{start}/{end}/{max_resolution}")
-async def Get_timeSeries_partially(id, start, end, max_resolution, project: str = Header(...), user_data=Depends(validate_user)):
-    dataset = ctrl.getDataSetByIdStartEnd(id, project, start, end, max_resolution)
-    res = orjson.dumps(dataset, option = orjson.OPT_SERIALIZE_NUMPY)
-    return Response(res, media_type="application/json")
+    dataset: ReturnDataset = ctrl.getDatasetById(id, project)
+    dataset = ReturnDataset(**dataset.model_dump(by_alias=True))
+    return dataset
 
 @router.post("/")
 async def create_dataset(body: Request, project: str = Header(...), user_data=Depends(validate_user)):
@@ -71,13 +69,6 @@ async def get_dataset_with_pagination(
         "total_datasets": total_count
     }
     return Response(json.dumps(response_data, cls=JSONEncoder), media_type="application/json")
-
-
-@router.post("/{id}/ts/{start}/{end}/{max_resolution}")
-async def get_time_series_partially(id, start, end, max_resolution, body: List[str], project: str = Header(...), user_data=Depends(validate_user)):
-    timeSeries = ctrl.getDatasetTimeSeriesStartEnd(id, body, project, start, end, max_resolution)
-    res = orjson.dumps(timeSeries, option = orjson.OPT_SERIALIZE_NUMPY)
-    return Response(res, media_type="application/json")
 
 # Update dataset
 @router.put("/{id}")
