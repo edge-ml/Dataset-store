@@ -150,24 +150,18 @@ class DatasetController():
 
 
     def deleteDataset(self, id, projectId):
-        ts_ids = self.dbm.deleteDatasetById(projectId, id)
-        for id in ts_ids:
-            binStore = BinaryStore(id)
-            binStore.delete()
+        dataset : DatasetDBSchema = self.dbm.getDatasetById(id, projectId)
+        ts_ids = [x.id for x in dataset.timeSeries]
+        if self.dbm.deleteDatasetById(projectId, id):
+            for id in ts_ids:
+                binStore = BinaryStore(id)
+                binStore.delete()
+        return True
+        
 
     def updateDataset(self, id, projectId, dataset):
         return self.dbm.updateDataset(id, projectId, dataset)
 
-    # def getDataSetByIdStartEnd(self, datasetId, timeSeriesId, projectId, start, end, max_resolution):
-    #     dataset = self.dbm.getDatasetById(id, project_id=projectId)
-    #     ts_ids = [x["_id"] for x in dataset["timeSeries"]]
-    #     res = []
-    #     for t in ts_ids:
-    #         binStore = BinaryStore(t)
-    #         binStore.loadSeries()
-    #         d = binStore.getPart(start, end, max_resolution)
-    #         res.append(d)
-    #     return res
     
     def getDataSetByIdStartEnd(self, datasetId, timeSeriesId, projectId, start, end, max_resolution):
         dataset = self.dbm.getDatasetById(datasetId, projectId)

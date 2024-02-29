@@ -26,12 +26,10 @@ class DatasetDBManager:
         self.ds_collection.insert_one(dataset)
         return dataset
 
-    def deleteDatasetById(self, projectID, dataset_id):
+    def deleteDatasetById(self, projectID: PyObjectId, dataset_id: PyObjectId):
         query = {"_id": ObjectId(dataset_id), "projectId": ObjectId(projectID)}
-        data = self.ds_collection.find_one(query)
-        self.ds_collection.delete_one(query)
-        ts = [x["_id"] for x in data["timeSeries"]]
-        return ts
+        res = self.ds_collection.delete_one(query)
+        return res.deleted_count == 1
 
     def getDatasetById(self, dataset_id : PyObjectId, project_id : PyObjectId) -> DatasetDBSchema:
         dataset =  self.ds_collection.find_one({"_id": ObjectId(dataset_id), "projectId": ObjectId(project_id)})

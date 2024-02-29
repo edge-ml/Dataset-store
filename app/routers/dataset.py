@@ -5,6 +5,8 @@ from routers.dependencies import validate_user
 import traceback
 from typing import List
 import json
+from utils.helpers import PyObjectId
+
 
 # Types
 from models.api import ReturnDataset
@@ -86,6 +88,8 @@ async def append_to_dataset(id, body: Request, project: str = Header(...), user_
         print(e)
         print(traceback.format_exc())
 
-@router.delete("/{id}")
-async def deleteDatasetById(id, project: str = Header(...), user_data=Depends(validate_user)):
-    ctrl.deleteDataset(id, projectId=project)
+
+@router.delete("/{id}", response_model=bool)
+async def deleteDatasetById(id : PyObjectId, project: str = Header(...), user_data=Depends(validate_user)):
+    return ctrl.deleteDataset(id, projectId=project)
+
