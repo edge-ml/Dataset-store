@@ -28,7 +28,7 @@ class InitDatasetModalLabeling(BaseModel):
 class InitDatasetModal(BaseModel):
     name: str
     timeSeries: List[str]
-    metaData: Dict[str,str]
+    metaData: Dict[str,str] = {}
 
 
 class TimeSeriesDataModel(BaseModel):
@@ -46,7 +46,7 @@ class IncrementUploadModal(BaseModel):
 async def init_dataset(body: InitDatasetModal, apiData=Depends(validateApiKey('write'))):
     userId = apiData["userId"]
     projectId = apiData["projectId"]
-    return {"id": initDataset(body.name, body.timeSeries, body.metaData, userId, projectId)}
+    return {"id": initDataset(body.name, body.timeSeries, body.metaData, userId, projectId)}    
 
 @router.post("/dataset/append/{api_key}/{dataset_id}")
 async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends(validateApiKey('write'))):
