@@ -1,10 +1,10 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from internal.config import MONGO_URI, PROJECT_DBNAME, PROJECT_COLLNAME
+from internal.config import DATABASE_URI, PROJECT_DBNAME, PROJECT_COLLNAME
 
 class ProjectDBManager():
     def __init__(self) -> None:
-        self.mongo_client = MongoClient(MONGO_URI)
+        self.mongo_client = MongoClient(DATABASE_URI)
         self.project_db = self.mongo_client[PROJECT_DBNAME]
         self.project_collection = self.project_db[PROJECT_COLLNAME]
 

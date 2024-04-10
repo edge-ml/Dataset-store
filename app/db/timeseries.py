@@ -1,11 +1,11 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from internal.config import MONGO_URI, TIMESERIES_DBNAME, TIMESERIES_COLLNAME
+from internal.config import DATABASE_URI, TIMESERIES_DBNAME, TIMESERIES_COLLNAME
 
 class TimeseriesDBManager():
 
     def __init__(self) -> None:
-        self.mongo_client = MongoClient(MONGO_URI)
+        self.mongo_client = MongoClient(DATABASE_URI)
         self.ts_db = self.mongo_client[TIMESERIES_DBNAME]
         self.ts_collection = self.ts_db[TIMESERIES_COLLNAME]
 

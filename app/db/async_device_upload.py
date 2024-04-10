@@ -1,7 +1,7 @@
 import pymongo
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from internal.config import MONGO_URI, DATASTORE_DBNAME, ASYNC_UPLOAD_COLNAME
+from internal.config import DATABASE_URI, DATASTORE_DBNAME, ASYNC_UPLOAD_COLNAME
 from pydantic import BaseModel, Field
 from typing import Dict, List, Union
 from utils.helpers import PyObjectId
@@ -16,7 +16,7 @@ class UploadRequest(BaseModel):
 
 class AsyncUploadDB:
     def __init__(self) -> None:
-        self.mongo_client = MongoClient(MONGO_URI)
+        self.mongo_client = MongoClient(DATABASE_URI)
         self.db = self.mongo_client[DATASTORE_DBNAME]
         self.col = self.db[ASYNC_UPLOAD_COLNAME] 
         

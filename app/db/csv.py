@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from internal.config import MONGO_URI, DATASTORE_DBNAME, CSV_COLLNAME
+from internal.config import DATABASE_URI, DATASTORE_DBNAME, CSV_COLLNAME
 from pydantic import BaseModel, RootModel, ValidationError, validator, Field
 from typing import Dict, List, Union
 from utils.helpers import PyObjectId
@@ -37,7 +37,7 @@ class DBEntry(RootModel):
 
 class csvDB:
     def __init__(self) -> None:
-        self.mongo_client = MongoClient(MONGO_URI)
+        self.mongo_client = MongoClient(DATABASE_URI)
         self.db = self.mongo_client[DATASTORE_DBNAME]
         self.col = self.db[CSV_COLLNAME]
 
