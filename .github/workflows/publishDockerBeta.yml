@@ -17,5 +17,5 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-          repository: edge-ml_dataset-store_beta
+          repository: tecokit/edge-ml_dataset-store_beta
           tag_with_ref: true
