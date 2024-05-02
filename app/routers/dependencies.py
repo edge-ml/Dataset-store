@@ -21,9 +21,10 @@ async def validate_user(Authorization: str = Header(...), project_id=Depends(ext
         user_id = ObjectId(decoded["id"])
         sub_level = decoded.get("subscriptionLevel")
         project = project_dbm.get_project(project_id)
+        project_users = [str(x) for x in project["users"]]
         if not project:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
-        if str(project['admin']) != str(user_id) and str(user_id) not in project['users']:
+        if str(project['admin']) != str(user_id) and str(user_id) not in project_users:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User unauthorized on project")
         return (user_id, token, sub_level)
     except InvalidSignatureError as e:
