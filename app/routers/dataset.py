@@ -73,9 +73,9 @@ async def get_dataset_with_pagination(
     return Response(json.dumps(response_data, cls=JSONEncoder), media_type="application/json")
 
 
-@router.post("/{id}/ts/{start}/{end}/{max_resolution}")
-async def get_time_series_partially(id, start, end, max_resolution, body: List[str], project: str = Header(...), user_data=Depends(validate_user)):
-    timeSeries = ctrl.getDatasetTimeSeriesStartEnd(id, body, project, start, end, max_resolution)
+@router.get("/{id}/ts/{ts_id}/{start}/{end}/{max_resolution}")
+async def get_time_series_partially(id, ts_id, start, end, max_resolution, project: str = Header(...), user_data=Depends(validate_user)):
+    timeSeries = ctrl.getDatasetTimeSeriesStartEnd(id, ts_id, project, start, end, max_resolution)
     res = orjson.dumps(timeSeries, option = orjson.OPT_SERIALIZE_NUMPY)
     return Response(res, media_type="application/json")
 

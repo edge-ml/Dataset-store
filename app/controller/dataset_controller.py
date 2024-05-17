@@ -201,6 +201,13 @@ class DatasetController():
     def getDatasetTimeSeriesStartEnd(self, dataset_id, ts_id, project_id, start, end, max_resolution):
         dataset = self.dbm.getDatasetById(dataset_id, project_id=project_id)
         dataset_ids = [str(x["_id"]) for x in dataset["timeSeries"]]
+
+        if str(ts_id) not in dataset_ids:
+            raise HTTPException(status.HTTP_404_NOT_FOUND)
+        binStore = BinaryStore(ts_id)
+        binStore.loadSeries()
+        return binStore.getPart(start, end, max_resolution)
+
         res = []
         for t in ts_id:
             if str(t) not in dataset_ids:
