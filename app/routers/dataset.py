@@ -17,6 +17,23 @@ router = APIRouter()
 
 ctrl = DatasetController()
 
+@router.get("/view")
+async def get_dataset_with_pagination(
+    request: Request,
+    skip: int = Query(0, description="Skip number", ge=0),
+    limit: int = Query(5, description="Limit number", ge=1),
+    sort: str = Query('alphaAsc', description="Sorting algorithm"),
+    project: str = Header(...),
+    user_data=Depends(validate_user),
+):
+    # body = await request.json()
+    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, skip, limit, sort, None)
+    response_data = {
+        "datasets": datasets,
+        "total_datasets": total_count
+    }
+    return Response(json.dumps(response_data, cls=JSONEncoder), media_type="application/json")
+
 @router.get("/")
 async def Get_datasets_metadata(project: str = Header(...), user_data=Depends(validate_user)):
     data = ctrl.getDatasetInProject(project)
@@ -53,24 +70,6 @@ async def create_dataset_with_csv(CSVFile: UploadFile = File(...), CSVConfig: st
     except Exception as exp:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
     return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")
-
-@router.post("/view")
-async def get_dataset_with_pagination(
-    request: Request,
-    page: int = Query(1, description="Page number", ge=1),
-    page_size: int = Query(5, description="Page size", ge=5),
-    sort: str = Query('alphaAsc', description="Sorting algorithm"),
-    project: str = Header(...),
-    user_data=Depends(validate_user),
-):
-    body = await request.json()
-    print(body)
-    datasets, total_count = ctrl.getDatasetInProjectWithPagination(project, page, page_size, sort, body.get('filters', {}))
-    response_data = {
-        "datasets": datasets,
-        "total_datasets": total_count
-    }
-    return Response(json.dumps(response_data, cls=JSONEncoder), media_type="application/json")
 
 
 @router.get("/{id}/ts/{ts_id}/{start}/{end}/{max_resolution}")

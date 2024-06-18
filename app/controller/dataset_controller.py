@@ -122,53 +122,41 @@ class DatasetController():
             res.append(t)
         return res
 
-    def getDatasetInProject(self, projectId, includeTimeseriesData=False):
+    def _populateLabelings(self, datasets, projectId):
+        labelings = self.dbm_labeling.get(projectId)
+        labeling_mapping = {entry['_id']: entry['name'] for entry in labelings}
+        label_mapping = {}
+        for entry in labelings:
+            for label in entry['labels']:
+                label_mapping[label['_id']] = label['name']
+        ds = []
+        for dataset in datasets:
+            dataset['labelings'] = [{'labeling': labeling_mapping[labeling['labelingId']], 
+                    'labels': [{'start': label['start'], 
+                                'end': label['end'], 
+                                'label': label_mapping[label['type']]}
+                               for label in labeling['labels']]}
+                   for labeling in ds['labelings']]
+        return datasets
+
+    def getDatasetInProject(self, projectId, includeTimeseriesData=False, skip=None, limit=None, sort=None):
         datasets = self.dbm.getDatasetsInProjet(projectId)
         datasets = list(datasets)
         if not includeTimeseriesData:
             return datasets
         
-        labelings = self.dbm_labeling.get(projectId)
-        labeling_mapping = {entry['_id']: entry['name'] for entry in labelings}
-        label_mapping = {}
-        for entry in labelings:
-            for label in entry['labels']:
-                label_mapping[label['_id']] = label['name']
-        datasets_with_timeseries = []
-        for dataset in datasets:
-            ds = self.getDatasetById(dataset['_id'], projectId, False)
-            ds['labelings'] = [{'labeling': labeling_mapping[labeling['labelingId']], 
-                    'labels': [{'start': label['start'], 
-                                'end': label['end'], 
-                                'label': label_mapping[label['type']]}
-                               for label in labeling['labels']]}
-                   for labeling in ds['labelings']]
-            datasets_with_timeseries.append(ds)
-        return datasets_with_timeseries
+        return self._populateLabelings(datasets, projectId)
     
-    def getDatasetInProjectWithPagination(self, projectId, page, page_size, sort, filters, includeTimeseriesData=False):
-        datasets, total_count = self.dbm.getDatasetsInProjectByPage(projectId, page, page_size, sort, filters)
+    def getDatasetInProjectWithPagination(self, projectId, skip, limit, sort, filters, includeTimeseriesData=False):
+        datasets, total_count = self.dbm.getDatasetsInProjetPagination(projectId, skip, limit, sort, filters)
         datasets = list(datasets)
         if not includeTimeseriesData:
             return datasets, total_count
         
-        labelings = self.dbm_labeling.get(projectId)
-        labeling_mapping = {entry['_id']: entry['name'] for entry in labelings}
-        label_mapping = {}
-        for entry in labelings:
-            for label in entry['labels']:
-                label_mapping[label['_id']] = label['name']
-        datasets_with_timeseries = []
-        for dataset in datasets:
-            ds = self.getDatasetById(dataset['_id'], projectId, False)
-            ds['labelings'] = [{'labeling': labeling_mapping[labeling['labelingId']], 
-                    'labels': [{'start': label['start'], 
-                                'end': label['end'], 
-                                'label': label_mapping[label['type']]}
-                               for label in labeling['labels']]}
-                   for labeling in ds['labelings']]
-            datasets_with_timeseries.append(ds)
-        return datasets_with_timeseries, total_count
+        new_datasets = self._populateLabelings(datasets, projectId)
+        return new_datasets, total_count
+    
+
 
     def getTimeSeriesData(self, projectId, datasetId, timeSeriesId):
         dataset = self.dbm.getDatasetById(datasetId, projectId)

@@ -76,75 +76,80 @@ class DatasetDBManager:
         datasets = self.ds_collection.find({"projectId": ObjectId(project_id)})
         return datasets
     
-    def getDatasetsInProjectByPage(self, project_id, page, page_size, sort, filters):
-        # Calculate the number of datasets to skip to reach the desired page
-        skip_count = (page - 1) * page_size
+    def getDatasetsInProjetPagination(self, project_id, skip, limit, sort, filters):
         query = {"projectId": ObjectId(project_id)}
-        pipeline = []
-        #filter for labelings and labels
-        if filters and 'labelings' in filters:
-            pipeline.append({
-                "$match": {
-                    "$and": [
-                        query,
-                        {
-                            "$or": [
-                                {"labelings": {"$elemMatch": {"labelingId": {"$in":  [ObjectId(id_str) for id_str in filters['labelings']['target_labeling_ids']]}}}},
-                                {"labelings.labels": {"$elemMatch": {"type": {"$in": [ObjectId(id_str) for id_str in filters['labelings']['target_label_ids']]}}}}
-                            ]          
-                        }
-                    ]
-                }
-            })
-        elif filters and 'filterEmptyDatasets' in filters:
-            pipeline.append({
-                "$match": {
-                    "$and": [
-                        query,
-                        {
-                            "$expr": {
-                                "$allElementsTrue": {
-                                    "$map": {
-                                        "input": "$timeSeries",
-                                        "as": "elm",
-                                        "in": {
-                                            "$or": [
-                                                {"$eq": ["$$elm.length", 0]},
-                                                {"$eq": ["$$elm.length", None]},
-                                            ]
-                                        },
-                                    }
-                                }
-                            }
-                        },
-                    ]
-                }
-            })
-        elif filters and 'filterByName' in filters:
-            if(filters['filterByName']):
-                search_string = re.escape(filters['filterByName'])
-                regex_pattern = f".*{search_string}.*"
-                pipeline.append({
-                    "$match": {
-                        "$and": [
-                         query,
-                         {"name": {"$regex": regex_pattern, "$options": "i"}}
-                         ]
-                        }
-                })
-            else:
-                pipeline.append({"$match": query})
-        #no filters applied
-        else: 
-            pipeline.append({"$match": query})
+        datasets = self.ds_collection.find(query).skip(skip).limit(limit)
+        dataset_count = self.ds_collection.count_documents(query)
+        return datasets, dataset_count
 
-        #count ds at this stage
-        pipeline.append( {"$facet": {
-        "datasets": [],
-        "count": [
-            {"$count": "count"}
-        ]
-    }})
+    # def getDatasetsInProjectByPage(self, project_id, skip, limit, sort, filters):
+    #     # Calculate the number of datasets to skip to reach the desired page
+    #     query = {"projectId": ObjectId(project_id)}
+    #     pipeline = []
+    #     #filter for labelings and labels
+    #     if filters and 'labelings' in filters:
+    #         pipeline.append({
+    #             "$match": {
+    #                 "$and": [
+    #                     query,
+    #                     {
+    #                         "$or": [
+    #                             {"labelings": {"$elemMatch": {"labelingId": {"$in":  [ObjectId(id_str) for id_str in filters['labelings']['target_labeling_ids']]}}}},
+    #                             {"labelings.labels": {"$elemMatch": {"type": {"$in": [ObjectId(id_str) for id_str in filters['labelings']['target_label_ids']]}}}}
+    #                         ]          
+    #                     }
+    #                 ]
+    #             }
+    #         })
+    #     elif filters and 'filterEmptyDatasets' in filters:
+    #         pipeline.append({
+    #             "$match": {
+    #                 "$and": [
+    #                     query,
+    #                     {
+    #                         "$expr": {
+    #                             "$allElementsTrue": {
+    #                                 "$map": {
+    #                                     "input": "$timeSeries",
+    #                                     "as": "elm",
+    #                                     "in": {
+    #                                         "$or": [
+    #                                             {"$eq": ["$$elm.length", 0]},
+    #                                             {"$eq": ["$$elm.length", None]},
+    #                                         ]
+    #                                     },
+    #                                 }
+    #                             }
+    #                         }
+    #                     },
+    #                 ]
+    #             }
+    #         })
+    #     elif filters and 'filterByName' in filters:
+    #         if(filters['filterByName']):
+    #             search_string = re.escape(filters['filterByName'])
+    #             regex_pattern = f".*{search_string}.*"
+    #             pipeline.append({
+    #                 "$match": {
+    #                     "$and": [
+    #                      query,
+    #                      {"name": {"$regex": regex_pattern, "$options": "i"}}
+    #                      ]
+    #                     }
+    #             })
+    #         else:
+    #             pipeline.append({"$match": query})
+    #     #no filters applied
+    #     else: 
+    #         pipeline.append({"$match": query})
+
+    #     #count ds at this stage
+    #     pipeline.append( {"$facet": {
+    #     "datasets": [],
+    #     "count": [
+    #         {"$count": "count"}
+    #     ]
+    # }})
 
         #sorting
         if(sort == 'alphaAsc' or sort == 'alphaDesc'):
