@@ -83,6 +83,14 @@ class DatasetDBManager:
         return datasets
     
     def getDatasetsInProjetPagination(self, project_id, skip, limit, sort, filters):
+
+        sort_map = {
+            "alphaDesc": {"field": "name", "order": -1},
+            "alphaAsc": {"field": "name", "order": 1},
+            "dateDesc": {"field": "timeSeries.start", "order": -1},
+            "dateAsc": {"field": "timeSeries.start", "order": 1}
+        }
+
         query = {"projectId": ObjectId(project_id)}
 
         sortingOptions = {
