@@ -35,6 +35,12 @@ class DatasetLabel(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
     metaData: Dict[str, str] = Field(default={})
 
+    @validator('end')
+    def check_start_end(cls, v, values):
+        if 'start' in values and v <= values['start']:
+            raise ValueError('end must be strictly greater than start')
+        return v
+
 class DatasetLabeling(BaseModel):
     labelingId: PyObjectId = Field(default_factory=ObjectId)
     labels: List[DatasetLabel]
@@ -78,7 +84,16 @@ class DatasetDBManager:
     
     def getDatasetsInProjetPagination(self, project_id, skip, limit, sort, filters):
         query = {"projectId": ObjectId(project_id)}
-        datasets = self.ds_collection.find(query).skip(skip).limit(limit)
+
+        sortingOptions = {
+            "alphaAsc": ("name", 1),
+            "alphaDesc": ("name", -1),
+            "dateAsc": ("timeSeries.start", 1),
+            "dateDesc": ("timeSeries.start", -1)
+        }
+
+        sorting_field, sorting_direction = sortingOptions[sort]
+        datasets = self.ds_collection.find(query).skip(skip).limit(limit).sort(sorting_field, sorting_direction)
         dataset_count = self.ds_collection.count_documents(query)
         return datasets, dataset_count
 
