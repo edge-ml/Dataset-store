@@ -53,7 +53,6 @@ class DatasetSchema(BaseModel):
     timeSeries: List[TimeSeries] = Field(default=[])
     labelings: List[DatasetLabeling] = Field(default=[])
     userId: PyObjectId
-    progressStep: List[Union[str, int]] = Field(default=ProgressStep.PARSING.value)
 
 class DatasetDBManager:
 
@@ -104,109 +103,6 @@ class DatasetDBManager:
         datasets = self.ds_collection.find(query).skip(skip).limit(limit).sort(sorting_field, sorting_direction)
         dataset_count = self.ds_collection.count_documents(query)
         return datasets, dataset_count
-
-    # def getDatasetsInProjectByPage(self, project_id, skip, limit, sort, filters):
-    #     # Calculate the number of datasets to skip to reach the desired page
-    #     query = {"projectId": ObjectId(project_id)}
-    #     pipeline = []
-    #     #filter for labelings and labels
-    #     if filters and 'labelings' in filters:
-    #         pipeline.append({
-    #             "$match": {
-    #                 "$and": [
-    #                     query,
-    #                     {
-    #                         "$or": [
-    #                             {"labelings": {"$elemMatch": {"labelingId": {"$in":  [ObjectId(id_str) for id_str in filters['labelings']['target_labeling_ids']]}}}},
-    #                             {"labelings.labels": {"$elemMatch": {"type": {"$in": [ObjectId(id_str) for id_str in filters['labelings']['target_label_ids']]}}}}
-    #                         ]          
-    #                     }
-    #                 ]
-    #             }
-    #         })
-    #     elif filters and 'filterEmptyDatasets' in filters:
-    #         pipeline.append({
-    #             "$match": {
-    #                 "$and": [
-    #                     query,
-    #                     {
-    #                         "$expr": {
-    #                             "$allElementsTrue": {
-    #                                 "$map": {
-    #                                     "input": "$timeSeries",
-    #                                     "as": "elm",
-    #                                     "in": {
-    #                                         "$or": [
-    #                                             {"$eq": ["$$elm.length", 0]},
-    #                                             {"$eq": ["$$elm.length", None]},
-    #                                         ]
-    #                                     },
-    #                                 }
-    #                             }
-    #                         }
-    #                     },
-    #                 ]
-    #             }
-    #         })
-    #     elif filters and 'filterByName' in filters:
-    #         if(filters['filterByName']):
-    #             search_string = re.escape(filters['filterByName'])
-    #             regex_pattern = f".*{search_string}.*"
-    #             pipeline.append({
-    #                 "$match": {
-    #                     "$and": [
-    #                      query,
-    #                      {"name": {"$regex": regex_pattern, "$options": "i"}}
-    #                      ]
-    #                     }
-    #             })
-    #         else:
-    #             pipeline.append({"$match": query})
-    #     #no filters applied
-    #     else: 
-    #         pipeline.append({"$match": query})
-
-    #     #count ds at this stage
-    #     pipeline.append( {"$facet": {
-    #     "datasets": [],
-    #     "count": [
-    #         {"$count": "count"}
-    #     ]
-    # }})
-
-        #sorting
-        if(sort == 'alphaAsc' or sort == 'alphaDesc'):
-            sortField = 'name'
-            sortOrder = 0
-
-            if sort == 'alphaAsc':
-                sortOrder = 1
-            elif sort == 'alphaDesc':
-                sortOrder = -1
-            pipeline[1]['$facet']['datasets'].extend([{"$sort": {sortField: sortOrder}},
-            #{"$collation": {'locale': 'en', 'strength': 2}}
-            ])
-        
-        if(sort == 'dateAsc' or sort == 'dateDesc'):
-            sortOrder = 0
-            if(sort == 'dateAsc'):
-                sortOrder = 1
-            else:
-                sortOrder = -1   
-            pipeline[1]['$facet']['datasets'].extend([{"$addFields": {"min_start": {"$min": "$timeSeries.start"}}},
-                {"$sort": {"min_start": sortOrder}}])
-        
-        #add pagination to pipeline 
-        pipeline[1]['$facet']['datasets'].extend([{"$skip": skip_count},
-                {"$limit": page_size}])
-        
-        #ds count and datasets
-        result = list(self.ds_collection.aggregate(pipeline))
-        datasets = result[0]["datasets"]
-        total_count = 0
-        if result and result[0].get("count"):
-            total_count = result[0]["count"][0]["count"]
-        return datasets, total_count
 
     def updateDataset(self, id, project_id, dataset):
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)

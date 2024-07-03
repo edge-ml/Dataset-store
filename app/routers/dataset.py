@@ -55,8 +55,8 @@ async def Get_timeSeries_partially(id, start, end, max_resolution, project: str 
 async def create_dataset(body: Request, project: str = Header(...), user_data=Depends(validate_user)):
     body = await body.json()
     (user_id, _, _) = user_data
-    ctrl.addDataset(dataset=body, project=project, user_id=user_id)
-    return {"message": "success"}
+    res = ctrl.addDataset(dataset=body, project=project, user_id=user_id)
+    return Response(json.dumps(res, cls=JSONEncoder), media_type="application/json")
 
 
 
@@ -65,9 +65,12 @@ async def create_dataset_with_csv(CSVFile: UploadFile = File(...), CSVConfig: st
     (user_id, _, _) = user_data
     metadata = None
     config = json.loads(CSVConfig)
+    print(config)
     try:
         metadata = ctrl.CSVUpload(CSVFile, config, project, user_id)
     except Exception as exp:
+        print(exp)
+        print(traceback.format_exc())
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
     return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")
 
