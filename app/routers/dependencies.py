@@ -1,10 +1,11 @@
 from fastapi.param_functions import Depends
 from jwt import decode, InvalidSignatureError, ExpiredSignatureError
 from bson.objectid import ObjectId
-from fastapi import status, Header, HTTPException
+from fastapi import status, Header, HTTPException, Cookie
 from db.project import ProjectDBManager
 from internal.config import SECRET_KEY
 from db.deviceAPi import DeviceApiManager
+from typing import Annotated, Union
 
 project_dbm = ProjectDBManager()
 deviceApi_dbm = DeviceApiManager()
@@ -12,9 +13,9 @@ deviceApi_dbm = DeviceApiManager()
 async def extract_project_id(project: str = Header(...)):
     return project
 
-async def validate_user(Authorization: str = Header(...), project_id=Depends(extract_project_id)):
+async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=Depends(extract_project_id)):
     try:
-        token = Authorization.split(" ")[1]
+        token = jwt
         decoded = decode(token, SECRET_KEY, algorithms=["HS256"])
         if "exp" not in decoded:
             raise ExpiredSignatureError
@@ -31,8 +32,8 @@ async def validate_user(Authorization: str = Header(...), project_id=Depends(ext
         print(e)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
     except ExpiredSignatureError:
+        print(e)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Token expired")
-    
 
 class validateApiKey:
     def __init__(self, access_type):
