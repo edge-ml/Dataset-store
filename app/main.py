@@ -5,6 +5,7 @@ from routers import dataset, deviceApi, label, labelings, csv
 
 parser = argparse.ArgumentParser(description="Run the database-store")
 parser.add_argument('--env', default="dev", choices=["dev", "docker"])
+parser.add_argument("--num_workers", type=int, default=20, help="Number of workers for uvicorn")
 args = parser.parse_args()
 env = args.env
 
@@ -27,11 +28,6 @@ class DatasetStore(FastAPI):
         app_info = {
             "title": "edge-ml dataset-store"
         }
-
-        # tags_metadata = {
-        #     "name": "datasets",
-        #     "description": "Allows to manage datasets"
-        # }
 
         super().__init__(*args, **{**app_info, **kwargs})
 
@@ -110,5 +106,5 @@ if __name__ == "__main__":
     if env == "dev":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True)
     if env == "docker":
-        uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=20)
+        uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=args.num_workers)
 
