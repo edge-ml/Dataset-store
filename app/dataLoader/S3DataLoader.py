@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 from io import BytesIO
 import botocore.exceptions
+from fastapi import HTTPException
 
 
 class S3DataLoader(BaseDataLoader):
@@ -36,6 +37,10 @@ class S3DataLoader(BaseDataLoader):
                 time_arr = np.array(f["time"])
                 data_arr = np.array(f["data"])
             return time_arr, data_arr
+        except botocore.exceptions.EndpointConnectionError as e:
+            raise HTTPException(status_code=504, detail=f"Timeout while retrieving object {id}: {e}")
+        except botocore.exceptions.ConnectTimeoutError as e:
+            raise HTTPException(status_code=504, detail=f"Timeout while retrieving object {id}: {e}")
         except botocore.exceptions.ClientError as e:
             print(f"Failed to retrieve object {id}: {e}")
             return None, None
@@ -51,6 +56,10 @@ class S3DataLoader(BaseDataLoader):
                 f.create_dataset("data", data=data_arr)
             buffer.seek(0)
             self.s3.put_object(Bucket=S3_BUCKET_NAME, Key=id, Body=buffer.getvalue())
+        except botocore.exceptions.EndpointConnectionError as e:
+            raise HTTPException(status_code=504, detail=f"Timeout while saving object {id}: {e}")
+        except botocore.exceptions.ConnectTimeoutError as e:
+            raise HTTPException(status_code=504, detail=f"Timeout while saving object {id}: {e}")
         except botocore.exceptions.ClientError as e:
             print(f"Failed to save object {id}: {e}")
         except OSError as e:
