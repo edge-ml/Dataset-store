@@ -91,20 +91,9 @@ async def type_error_exception_handler(request: Request, exc: TypeError):
         status_code=status.HTTP_400_BAD_REQUEST, content={"message": "Invalid input"}
     )
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # On startup
-    global rabbitMQTask
-    loop = asyncio.get_event_loop()
-    rabbitMQTask = asyncio.create_task(main(loop))
-    yield
-    # On shutdown
-    rabbitMQTask.cancel()
-
 
 if __name__ == "__main__":
     if env == "dev":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True)
     if env == "docker":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=args.num_workers)
-
