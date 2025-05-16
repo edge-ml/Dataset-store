@@ -2,6 +2,8 @@ import uvicorn
 import argparse
 from contextlib import asynccontextmanager
 from routers import dataset, deviceApi, label, labelings, csv
+import logging
+import time
 
 parser = argparse.ArgumentParser(description="Run the database-store")
 parser.add_argument('--env', default="dev", choices=["dev", "docker"])
@@ -20,6 +22,16 @@ from routers import router
 from fastapi.middleware.gzip import GZipMiddleware
 import traceback
 
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler("/app/logs/dataset-store.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("dataset-store")
 
 class DatasetStore(FastAPI):
     
@@ -79,17 +91,27 @@ rabbitMQTask = None
 
 @app.exception_handler(ValueError)
 async def value_error_exception_handler(request: Request, exc: ValueError):
+    logger.error(f"ValueError: {exc}")
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={"message": str(exc)},
     )
 @app.exception_handler(TypeError)
 async def type_error_exception_handler(request: Request, exc: TypeError):
-    print(exc)
-    print(traceback.format_exc())
+    logger.error(f"TypeError: {exc}")
+    logger.error(traceback.format_exc())
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST, content={"message": "Invalid input"}
     )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Start request path={request.url.path}")
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+    logger.info(f"Completed request path={request.url.path} duration={duration:.4f}s status_code={response.status_code}")
+    return response
 
 
 if __name__ == "__main__":
