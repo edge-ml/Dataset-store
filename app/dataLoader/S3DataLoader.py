@@ -31,8 +31,10 @@ class S3DataLoader(BaseDataLoader):
 
     def load_series(self, id):
         try:
+            print(f"Loading object {id} from S3 bucket {S3_BUCKET_NAME}")
             obj = self.s3.get_object(Bucket=S3_BUCKET_NAME, Key=id)
             buffer = BytesIO(obj["Body"].read())
+            print(f"Object {id} loaded successfully")
             with h5py.File(buffer, "r") as f:
                 time_arr = np.array(f["time"])
                 data_arr = np.array(f["data"])
