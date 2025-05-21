@@ -6,15 +6,23 @@ import numpy as np
 from io import BytesIO
 import botocore.exceptions
 from fastapi import HTTPException
+import boto3.session
 
 
 class S3DataLoader(BaseDataLoader):
     def __init__(self):
-        self.s3 = boto3.client(
+        session = boto3.session.Session()
+        self.s3 = session.client(
             service_name="s3",
             endpoint_url=S3_URL,
             aws_access_key_id=S3_ACCESS_KEY,
             aws_secret_access_key=S3_SECRET_KEY,
+            config=boto3.session.Config(
+                retries={
+                    'max_attempts': 10,
+                    'mode': 'standard'
+                }
+            )
         )
         try:
             self.s3.head_bucket(Bucket=S3_BUCKET_NAME)
