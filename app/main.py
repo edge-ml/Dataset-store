@@ -33,6 +33,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("dataset-store")
 
+# Configure boto3 and botocore loggers for detailed debugging
+logging.getLogger('boto3').setLevel(logging.DEBUG)
+logging.getLogger('botocore').setLevel(logging.DEBUG)
+logging.getLogger('s3transfer').setLevel(logging.DEBUG) # For S3 transfer details
+
 class DatasetStore(FastAPI):
     
     def __init__(self, *args, **kwargs):
