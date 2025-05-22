@@ -51,7 +51,6 @@ class BinaryStore():
             res = np.ascontiguousarray(res)
             return res
 
-
         start_index = 0
         end_index = len(self.time_arr) -1
         if start_time != "undefined" and end_time != "undefined":

@@ -196,15 +196,6 @@ class DatasetController():
         binStore.loadSeries()
         return binStore.getPart(start, end, max_resolution)
 
-        res = []
-        for t in ts_id:
-            if str(t) not in dataset_ids:
-                raise HTTPException(status.HTTP_404_NOT_FOUND)
-            binStore = BinaryStore(t)
-            binStore.loadSeries()
-            res.append(binStore.getPart(start, end, max_resolution))
-        return res
-
     def append(self, id, project, body, projectId):
         dataset = self.dbm.getDatasetById(id, project)
         datasetIds = [x["_id"] for x in dataset["timeSeries"]]

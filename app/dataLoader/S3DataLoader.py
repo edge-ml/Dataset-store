@@ -58,6 +58,7 @@ class S3DataLoader(BaseDataLoader):
             with h5py.File(buffer, "r") as f:
                 time_arr = np.array(f["time"])
                 data_arr = np.array(f["data"])
+            buffer.close() # Explicitly close the BytesIO buffer
             return time_arr, data_arr
         except botocore.exceptions.EndpointConnectionError as e:
             logger.error(f"EndpointConnectionError while retrieving object {id}: {e}")
@@ -85,6 +86,7 @@ class S3DataLoader(BaseDataLoader):
                 f.create_dataset("data", data=data_arr)
             buffer.seek(0)
             self.s3.put_object(Bucket=S3_BUCKET_NAME, Key=id, Body=buffer.getvalue())
+            buffer.close() # Explicitly close the BytesIO buffer
             end_time = time.time()
             logger.info(f"Object {id} saved successfully in {end_time - start_time:.2f} seconds.")
         except botocore.exceptions.EndpointConnectionError as e:

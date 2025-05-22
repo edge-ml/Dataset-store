@@ -6,7 +6,7 @@ default_values = {
     "S3_BUCKET_NAME": None,
     "S3_ACCESS_KEY": None,
     "S3_SECRET_KEY": None,
-    "S3_TIMEOUT_SECONDS": 7
+    "S3_TIMEOUT_SECONDS": 2 # Default to 5 seconds, as a compromise
 }
 
 config =  lambda x: None
