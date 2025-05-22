@@ -1,5 +1,5 @@
 from dataLoader.BaseDataLoader import BaseDataLoader
-from internal.config import S3_URL, S3_BUCKET_NAME, S3_ACCESS_KEY, S3_SECRET_KEY
+from internal.config import S3_URL, S3_BUCKET_NAME, S3_ACCESS_KEY, S3_SECRET_KEY, S3_TIMEOUT_SECONDS
 import boto3
 import h5py
 import numpy as np
@@ -21,7 +21,9 @@ class S3DataLoader(BaseDataLoader):
                 retries={
                     'max_attempts': 10,
                     'mode': 'standard'
-                }
+                },
+                connect_timeout=S3_TIMEOUT_SECONDS,
+                read_timeout=S3_TIMEOUT_SECONDS
             )
         )
         try:
