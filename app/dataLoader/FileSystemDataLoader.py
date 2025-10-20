@@ -1,8 +1,8 @@
-from dataLoader.BaseDataLoader import BaseDataLoader
+from app.dataLoader.BaseDataLoader import BaseDataLoader
 import struct
 import numpy as np
 import os
-from internal.config import TSDATA
+from app.internal.config import TSDATA
 
 DATA_PREFIX = TSDATA
 

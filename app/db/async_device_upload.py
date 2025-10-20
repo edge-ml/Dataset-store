@@ -1,10 +1,10 @@
 import pymongo
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from internal.config import MONGO_URI, DATASTORE_DBNAME, ASYNC_UPLOAD_COLNAME
+from app.internal.config import MONGO_URI, DATASTORE_DBNAME, ASYNC_UPLOAD_COLNAME
 from pydantic import BaseModel, Field
 from typing import Dict, List, Union
-from utils.helpers import PyObjectId
+from app.utils.helpers import PyObjectId
 import datetime
 
 class UploadRequest(BaseModel):

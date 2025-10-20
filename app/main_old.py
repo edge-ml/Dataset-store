@@ -2,6 +2,7 @@ import uvicorn
 import argparse
 from contextlib import asynccontextmanager
 from routers import dataset, deviceApi, label, labelings, csv
+from features import Auth
 import logging
 import time
 
@@ -21,13 +22,17 @@ import argparse
 from routers import router
 from fastapi.middleware.gzip import GZipMiddleware
 import traceback
+import os
 
 
+logging_path = os.path.join("app", "logs", "dataset-store.log")
+if not os.path.exists(os.path.dirname(logging_path)):
+    os.makedirs(os.path.dirname(logging_path))
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
-        logging.FileHandler("/app/logs/dataset-store.log"),
+        logging.FileHandler(logging_path),
         logging.StreamHandler()
     ]
 )
@@ -58,7 +63,7 @@ class DatasetStore(FastAPI):
         )
 
         self.add_middleware(GZipMiddleware, minimum_size=1000)
-
+        
         self.include_router(
             dataset.router,
             prefix='/ds/datasets',

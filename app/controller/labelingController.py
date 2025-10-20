@@ -1,5 +1,5 @@
-from db.labelings import LabelingDBManager
-from db.dataset import DatasetDBManager
+from app.db.labelings import LabelingDBManager
+from app.db.dataset import DatasetDBManager
 from bson.objectid import ObjectId
 
 import traceback

@@ -2,9 +2,9 @@ from fastapi.param_functions import Depends
 from jwt import decode, InvalidSignatureError, ExpiredSignatureError
 from bson.objectid import ObjectId
 from fastapi import status, Header, HTTPException, Cookie
-from db.project import ProjectDBManager
-from internal.config import SECRET_KEY
-from db.deviceAPi import DeviceApiManager
+from app.db.project import ProjectDBManager
+from app.internal.config import SECRET_KEY
+from app.db.deviceAPi import DeviceApiManager
 from typing import Annotated, Union
 
 project_dbm = ProjectDBManager()

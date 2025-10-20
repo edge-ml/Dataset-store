@@ -1,0 +1,1 @@
+from app.features.Labelings.router import router
