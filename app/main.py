@@ -21,13 +21,12 @@ import argparse
 from routers import router
 from fastapi.middleware.gzip import GZipMiddleware
 import traceback
-
+import os
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
-        logging.FileHandler("/app/logs/dataset-store.log"),
         logging.StreamHandler()
     ]
 )
