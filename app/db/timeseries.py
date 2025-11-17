@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from app.internal.config import MONGO_URI, TIMESERIES_DBNAME, TIMESERIES_COLLNAME
+from internal.config import MONGO_URI, TIMESERIES_DBNAME, TIMESERIES_COLLNAME
 
 class TimeseriesDBManager():
 

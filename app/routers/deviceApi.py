@@ -3,17 +3,17 @@ from fastapi import APIRouter, UploadFile, File, Form, Response, BackgroundTasks
 from starlette.background import BackgroundTask
 from fastapi.param_functions import Depends
 from fastapi.responses import FileResponse
-from app.utils.json_encoder import JSONEncoder
-from app.controller.dataset_controller import DatasetController
-from app.controller.labelingController import getProjectLabelings
-from app.routers.dependencies import validateApiKey
+from utils.json_encoder import JSONEncoder
+from controller.dataset_controller import DatasetController
+from controller.labelingController import getProjectLabelings
+from routers.dependencies import validateApiKey
 from typing import List, Dict, Optional
 from pydantic import BaseModel
-from app.controller.api_controller import initDataset, appendDataset
+from controller.api_controller import initDataset, appendDataset
 from typing import Tuple
 import traceback
-from app.utils.InMemoryLockManager import thread_safe
-from app.controller.csv_uploadController import registerDownload, get_status
+from utils.InMemoryLockManager import thread_safe
+from controller.csv_uploadController import registerDownload, get_status
 
 import json
 
@@ -28,7 +28,7 @@ class InitDatasetModalLabeling(BaseModel):
 class InitDatasetModal(BaseModel):
     name: str
     timeSeries: List[str]
-    metaData: Dict[str,str]
+    metaData: Dict[str,str] = {}
 
 
 class TimeSeriesDataModel(BaseModel):
@@ -37,7 +37,7 @@ class TimeSeriesDataModel(BaseModel):
 
 class IncrementUploadModal(BaseModel):
     data: List[TimeSeriesDataModel]    
-    labeling: Optional[InitDatasetModalLabeling]
+    labeling: InitDatasetModalLabeling | None = None
 
 
 
@@ -46,7 +46,7 @@ class IncrementUploadModal(BaseModel):
 async def init_dataset(body: InitDatasetModal, apiData=Depends(validateApiKey('write'))):
     userId = apiData["userId"]
     projectId = apiData["projectId"]
-    return {"id": initDataset(body.name, body.timeSeries, body.metaData, userId, projectId)}
+    return {"id": initDataset(body.name, body.timeSeries, body.metaData, userId, projectId)}    
 
 @router.post("/dataset/append/{api_key}/{dataset_id}")
 async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends(validateApiKey('write'))):

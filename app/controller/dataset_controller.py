@@ -1,26 +1,26 @@
 from io import StringIO
-from app.db.dataset import DatasetDBManager
+from db.dataset import DatasetDBManager
 from .binary_store import BinaryStore
 from typing import Union
 from bson.objectid import ObjectId
 import time
 import os
 from fastapi import HTTPException, status
-from app.utils.helpers import custom_index
-from app.db.deviceAPi import DeviceApiManager
+from utils.helpers import custom_index
+from db.deviceAPi import DeviceApiManager
 import requests
 import random
-from app.controller.labelingController import createLabeling
+from controller.labelingController import createLabeling
 from fastapi import UploadFile
-from app.utils.CsvParser import CsvParser
+from utils.CsvParser import CsvParser
 import traceback
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
 import json
 import pandas as pd
-from app.db.labelings import LabelingDBManager
+from db.labelings import LabelingDBManager
 from io import BytesIO
-from app.internal.config import RAW_UPLOAD_DATA
+from internal.config import RAW_UPLOAD_DATA
 import numpy as np
 
 class FileDescriptor(BaseModel):
@@ -42,8 +42,8 @@ class CsvLabeling(BaseModel):
 class CSVDatasetInfo(BaseModel):
     name: str
     files: List[FileDescriptor]
-    labeling: Optional[CsvLabeling]
-    metaData: Optional[Dict[str, str]]
+    labeling: CsvLabeling | None = None
+    metaData: Dict[str, str] | None = None
     saveRaw: bool = Field(default=False)
 
 class EdgeMLCSVDatasetInfo(BaseModel):
@@ -92,6 +92,7 @@ class DatasetController():
 
 
     def addDataset(self, dataset, project, user_id=None):
+        print("Add dataset")
         datasetMeta = dataset
         datasetMeta["projectId"] = ObjectId(project)
         if user_id is not None:
@@ -121,29 +122,41 @@ class DatasetController():
             res.append(t)
         return res
 
-    def getDatasetInProject(self, projectId, includeTimeseriesData=False):
-        datasets = self.dbm.getDatasetsInProjet(projectId)
-        datasets = list(datasets)
-        if not includeTimeseriesData:
-            return datasets
-        
+    def _populateLabelings(self, datasets, projectId):
         labelings = self.dbm_labeling.get(projectId)
         labeling_mapping = {entry['_id']: entry['name'] for entry in labelings}
         label_mapping = {}
         for entry in labelings:
             for label in entry['labels']:
                 label_mapping[label['_id']] = label['name']
-        datasets_with_timeseries = []
+        ds = []
         for dataset in datasets:
-            ds = self.getDatasetById(dataset['_id'], projectId, False)
-            ds['labelings'] = [{'labeling': labeling_mapping[labeling['labelingId']], 
+            dataset['labelings'] = [{'labeling': labeling_mapping[labeling['labelingId']], 
                     'labels': [{'start': label['start'], 
                                 'end': label['end'], 
                                 'label': label_mapping[label['type']]}
                                for label in labeling['labels']]}
                    for labeling in ds['labelings']]
-            datasets_with_timeseries.append(ds)
-        return datasets_with_timeseries
+        return datasets
+
+    def getDatasetInProject(self, projectId, includeTimeseriesData=False, skip=None, limit=None, sort=None):
+        datasets = self.dbm.getDatasetsInProjet(projectId)
+        datasets = list(datasets)
+        if not includeTimeseriesData:
+            return datasets
+        
+        return self._populateLabelings(datasets, projectId)
+    
+    def getDatasetInProjectWithPagination(self, projectId, skip, limit, sort, filters, includeTimeseriesData=False):
+        datasets, total_count = self.dbm.getDatasetsInProjetPagination(projectId, skip, limit, sort, filters)
+        datasets = list(datasets)
+        if not includeTimeseriesData:
+            return datasets, total_count
+        
+        new_datasets = self._populateLabelings(datasets, projectId)
+        return new_datasets, total_count
+    
+
 
     def getTimeSeriesData(self, projectId, datasetId, timeSeriesId):
         dataset = self.dbm.getDatasetById(datasetId, projectId)
@@ -176,14 +189,12 @@ class DatasetController():
     def getDatasetTimeSeriesStartEnd(self, dataset_id, ts_id, project_id, start, end, max_resolution):
         dataset = self.dbm.getDatasetById(dataset_id, project_id=project_id)
         dataset_ids = [str(x["_id"]) for x in dataset["timeSeries"]]
-        res = []
-        for t in ts_id:
-            if str(t) not in dataset_ids:
-                raise HTTPException(status.HTTP_404_NOT_FOUND)
-            binStore = BinaryStore(t)
-            binStore.loadSeries()
-            res.append(binStore.getPart(start, end, max_resolution))
-        return res
+
+        if str(ts_id) not in dataset_ids:
+            raise HTTPException(status.HTTP_404_NOT_FOUND)
+        binStore = BinaryStore(ts_id)
+        binStore.loadSeries()
+        return binStore.getPart(start, end, max_resolution)
 
     def append(self, id, project, body, projectId):
         dataset = self.dbm.getDatasetById(id, project)

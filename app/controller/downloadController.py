@@ -1,19 +1,20 @@
-from app.db.csv import csvDB
+from db.csv import csvDB
 import random
 import io
 import zipfile
 from fastapi.responses import StreamingResponse
 from fastapi import BackgroundTasks, FastAPI
-from app.controller.dataset_controller import DatasetController
-from app.db.csv import csvDB, DBEntryDataset, DBEntryProject
-from app.db.dataset import DatasetDBManager
-from app.db.project import ProjectDBManager
+from controller.dataset_controller import DatasetController
+from db.csv import csvDB, DBEntryDataset, DBEntryProject
+from db.dataset import DatasetDBManager
+from db.project import ProjectDBManager
 import traceback
 import time
 from fastapi import HTTPException
 import tempfile
 import os
-from app.utils.helpers import PyObjectId
+from utils.helpers import PyObjectId
+from contextlib import asynccontextmanager
 
 ctrl = DatasetController()
 
@@ -44,6 +45,11 @@ app = FastAPI()
 async def startup_event():
     background_task()
 
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     background_task()
+
+
 def registerForDownloadDataset(projectId, dataset_id, userId, background_tasks):
     id = "%06x" % random.randint(0, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
     project = project_db.get_project(projectId)
@@ -66,7 +72,6 @@ def downloadProject(downloadId, project):
     fileNameCtr = {}
     datasets = dataset_db.getDatasetsInProjet(project)
     datasets = [d["_id"] for d in datasets]
-    print("Saving datasets: ", datasets)
     with tempfile.NamedTemporaryFile(delete=False) as temp_file:
         with zipfile.ZipFile(temp_file, "a", zipfile.ZIP_DEFLATED, False) as file:
             for id in datasets:

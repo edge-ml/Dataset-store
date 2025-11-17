@@ -1,8 +1,9 @@
-name: CI
+name: Publish Docker
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   push_to_registry:

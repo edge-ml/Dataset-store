@@ -1,22 +1,31 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from app.internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
+from internal.config import MONGO_URI, DATASTORE_DBNAME, DATASTORE_COLLNAME
 from pydantic import BaseModel, ValidationError, validator, Field
-from typing import Dict, List, Optional
-from app.utils.helpers import PyObjectId
+from typing import Dict, List, Optional, Union
+from utils.helpers import PyObjectId
+from enum import Enum
+import re
 
+class ProgressStep(Enum):
+    PARSING = ["Parsing the file", 20]
+    LABELING = ["Extracting labels", 40]
+    CREATING_DATASET = ["Creating dataset", 60]
+    UPLOADING_DATASET = ["Syncing Timeseries with DB", 80]
+    COMPLETE = ["Complete", 100]
+    
 class SamplingRate(BaseModel):
     mean: float
     var: float
 
 class TimeSeries(BaseModel):
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
-    start: Optional[int]
-    end: Optional[int]
+    start: int | None = None
+    end: int | None = None
     unit: str = Field(default="")
     name: str
-    samplingRate: Optional[SamplingRate]
-    length: Optional[int]
+    samplingRate: SamplingRate | None = None
+    length: int | None = None
 
 
 class DatasetLabel(BaseModel):
@@ -25,6 +34,12 @@ class DatasetLabel(BaseModel):
     type: PyObjectId = Field(default_factory=ObjectId)
     id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
     metaData: Dict[str, str] = Field(default={})
+
+    @validator('end')
+    def check_start_end(cls, v, values):
+        if 'start' in values and v <= values['start']:
+            raise ValueError('end must be strictly greater than start')
+        return v
 
 class DatasetLabeling(BaseModel):
     labelingId: PyObjectId = Field(default_factory=ObjectId)
@@ -35,10 +50,9 @@ class DatasetSchema(BaseModel):
     projectId: PyObjectId
     name: str
     metaData: Dict[str, str] = Field(default={})
-    timeSeries: List[TimeSeries]
+    timeSeries: List[TimeSeries] = Field(default=[])
     labelings: List[DatasetLabeling] = Field(default=[])
     userId: PyObjectId
-
 
 class DatasetDBManager:
 
@@ -48,6 +62,7 @@ class DatasetDBManager:
         self.ds_collection = self.db[DATASTORE_COLLNAME]
 
     def addDataset(self, dataset):
+        print(dataset)
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
         self.ds_collection.insert_one(dataset)
         return dataset
@@ -66,11 +81,52 @@ class DatasetDBManager:
         datasets = self.ds_collection.find({"projectId": ObjectId(project_id)})
         return datasets
     
+    def getDatasetsInProjetPagination(self, project_id, skip, limit, sort, filters):
+
+        sort_map = {
+            "alphaDesc": {"field": "name", "order": -1},
+            "alphaAsc": {"field": "name", "order": 1},
+            "dateDesc": {"field": "timeSeries.start", "order": -1},
+            "dateAsc": {"field": "timeSeries.start", "order": 1}
+        }
+
+        query = {"projectId": ObjectId(project_id)}
+
+        sortingOptions = {
+            "alphaAsc": ("name", 1),
+            "alphaDesc": ("name", -1),
+            "dateAsc": ("timeSeries.start", 1),
+            "dateDesc": ("timeSeries.start", -1)
+        }
+
+        sorting_field, sorting_direction = sortingOptions[sort]
+        datasets = self.ds_collection.find(query).skip(skip).limit(limit).sort(sorting_field, sorting_direction)
+        dataset_count = self.ds_collection.count_documents(query)
+        return datasets, dataset_count
+
     def updateDataset(self, id, project_id, dataset):
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
         self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
         return dataset
+    
+    def partialUpdate(self, id, project_id, updates: dict):
+        self.ds_collection.update_one(
+            {"_id": ObjectId(id), "projectId": ObjectId(project_id)},
+            {"$set": updates}
+        )
+    
+    def updateTimeSeriesUnit(self, id, timeSeriesId, project_id, unit):
+        query = {"_id": ObjectId(id), "projectId": ObjectId(project_id), "timeSeries._id": ObjectId(timeSeriesId)}
+        print("unit:", unit)
+        update = {"$set": {"timeSeries.$.unit": unit}}
+        result = self.ds_collection.update_one(query, update)
+        print(result)
 
+    def updateTimeSeriesUnitConfig(self, dataset_id, timeSeries_id, project_id, unit, scaling, offset):
+        query = {"_id": ObjectId(dataset_id), "timeSeries._id": ObjectId(timeSeries_id), "projectId": ObjectId(project_id)}
+        update = {"$set": {"timeSeries.$.unit": unit, "timeSeries.$.scaling": float(scaling), "timeSeries.$.offset": float(offset)}}
+        update_result = self.ds_collection.update_one(query, update)
+        
     def deleteProject(self, project):
         self.ds_collection.delete_many({"_id": ObjectId(project)})
 
@@ -83,3 +139,10 @@ class DatasetDBManager:
         update = {"$set": {"labelings.$[].labels.$[label]": newLabel}}
         array_filters = [{"label._id": label_Id}]
         self.ds_collection.update_one(query, update, array_filters=array_filters, upsert=True)
+
+    def updateTimeSeriesUnit(self, id, timeSeriesId, project_id, unit):
+        query = {"_id": ObjectId(id), "projectId": ObjectId(project_id), "timeSeries._id": ObjectId(timeSeriesId)}
+        print("unit:", unit)
+        update = {"$set": {"timeSeries.$.unit": unit}}
+        result = self.ds_collection.update_one(query, update)
+        print(result)

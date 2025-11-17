@@ -1,4 +1,4 @@
-from app.db.dataset import DatasetDBManager
+from db.dataset import DatasetDBManager
 from bson.objectid import ObjectId
 from fastapi import HTTPException
 from bson.objectid import ObjectId
@@ -17,7 +17,11 @@ def _checkLabelOverlap(dataset, label, labelingId):
         
 
 def createLabel(dataset_id, project_id, labelingId, label):
+    label["start"] = int(label["start"])
+    label["end"] = int(label["end"])
     dataset = dbm.getDatasetById(dataset_id, project_id)
+    if dataset is None:
+        raise HTTPException(status_code=400, detail="Cannot find dataset")
     containsLabeling = any([ObjectId(x["labelingId"]) == ObjectId(labelingId) for x in dataset["labelings"]])
     if not containsLabeling:
         dataset["labelings"].append({"labels": [], "labelingId": labelingId})

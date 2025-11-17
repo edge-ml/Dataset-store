@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from app.internal.config import MONGO_URI, PROJECT_DBNAME, PROJECT_COLLNAME
+from internal.config import MONGO_URI, PROJECT_DBNAME, PROJECT_COLLNAME
 
 class ProjectDBManager():
     def __init__(self) -> None:

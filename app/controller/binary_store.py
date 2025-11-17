@@ -8,9 +8,9 @@ import lttbc
 import h5py
 import functools
 import tempfile
-from app.internal.config import TS_STORE_MECHANISM
-from app.dataLoader.FileSystemDataLoader import FileSystemDataLoader
-from app.dataLoader.S3DataLoader import S3DataLoader
+from internal.config import TS_STORE_MECHANISM
+from dataLoader.FileSystemDataLoader import FileSystemDataLoader
+from dataLoader.S3DataLoader import S3DataLoader
 
 dataLoader = None
 
@@ -37,7 +37,6 @@ class BinaryStore():
             with h5py.File(tmp_file.name, "w") as hf:
                 hf.create_dataset("time", data=self.time_arr)
                 hf.create_dataset("data", data=self.data_arr)
-                print(self.data_arr)
             return tmp_file.name
 
     def saveSeries(self):
@@ -51,7 +50,6 @@ class BinaryStore():
             res = np.asarray([self.time_arr, self.data_arr]).T
             res = np.ascontiguousarray(res)
             return res
-
 
         start_index = 0
         end_index = len(self.time_arr) -1
@@ -77,6 +75,7 @@ class BinaryStore():
         if len(tsValues) == 0:
             time, data = np.array([], dtype=np.uint64), np.array([], dtype=np.float32)
         else:
+            tsValues = np.asarray(tsValues)
             time = tsValues[:, 0]
             data = tsValues[:, 1]
 

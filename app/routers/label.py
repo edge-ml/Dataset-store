@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Request, Header, Response
 from fastapi.param_functions import Depends
 
-from app.controller.label_controller import createLabel, updateLabel, deleteLabel
-from app.utils.json_encoder import JSONEncoder
-from app.routers.dependencies import validate_user
+from controller.label_controller import createLabel, updateLabel, deleteLabel
+from utils.json_encoder import JSONEncoder
+from routers.dependencies import validate_user
 
 from pydantic import BaseModel, Field
-from app.utils.helpers import PyObjectId
+from utils.helpers import PyObjectId
 from bson.objectid import ObjectId
 from typing import Optional, Dict
 

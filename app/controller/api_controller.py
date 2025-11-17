@@ -1,9 +1,9 @@
-from app.db.dataset import DatasetDBManager
-from app.controller.binary_store import BinaryStore
-from app.controller.dataset_controller import DatasetController
-from app.controller.labelingController import createLabeling
-from app.controller.label_controller import createLabel
-from app.utils.helpers import random_hex_color
+from db.dataset import DatasetDBManager
+from controller.binary_store import BinaryStore
+from controller.dataset_controller import DatasetController
+from controller.labelingController import createLabeling
+from controller.label_controller import createLabel
+from utils.helpers import random_hex_color
 from bson.objectid import ObjectId
 import traceback
 import numpy as np

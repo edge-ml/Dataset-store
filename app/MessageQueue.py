@@ -7,8 +7,8 @@ import json
 from bson.objectid import ObjectId
 
 
-from app.controller.dataset_controller import DatasetController
-from app.controller.labelingController import deleteProjectLabeling
+from controller.dataset_controller import DatasetController
+from controller.labelingController import deleteProjectLabeling
 
 datasetController = DatasetController()
 

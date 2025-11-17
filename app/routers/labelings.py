@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Request, Header, Response
 from fastapi.param_functions import Depends
-from app.routers.dependencies import validate_user
+from routers.dependencies import validate_user
 
-from app.controller.labelingController import getProjectLabelings, createLabeling, updateLabeling, deleteLabeling
+from controller.labelingController import getProjectLabelings, createLabeling, updateLabeling, deleteLabeling
 
-from app.utils.json_encoder import JSONEncoder
+from utils.json_encoder import JSONEncoder
 
 import json
 

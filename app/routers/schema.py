@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from bson.objectid import ObjectId
 from typing import Dict, List, Optional
-from app.utils.helpers import PyObjectId
+from utils.helpers import PyObjectId
 
 
 class TimeSeries(BaseModel):
@@ -10,7 +10,7 @@ class TimeSeries(BaseModel):
     end: int
     unit: str = Field(default="")
     name: str
-    data: Optional[List]
+    data: List | None = None
 
 class DatasetLabels(BaseModel):
     start: int
