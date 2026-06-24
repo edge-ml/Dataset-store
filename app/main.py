@@ -120,6 +120,8 @@ async def log_requests(request: Request, call_next):
 
 if __name__ == "__main__":
     if env == "dev":
-        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True)
+        uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True,
+                    proxy_headers=True, forwarded_allow_ips="*")
     if env == "docker":
-        uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=args.num_workers)
+        uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=args.num_workers,
+                    proxy_headers=True, forwarded_allow_ips="*")
