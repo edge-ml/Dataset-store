@@ -37,8 +37,10 @@ class DatasetLabel(BaseModel):
 
     @validator('end')
     def check_start_end(cls, v, values):
-        if 'start' in values and v <= values['start']:
-            raise ValueError('end must be strictly greater than start')
+        # Allow zero-duration (point) labels, i.e. a label marked on a single
+        # timestamp; only reject end strictly before start.
+        if 'start' in values and v < values['start']:
+            raise ValueError('end must not be before start')
         return v
 
 class DatasetLabeling(BaseModel):

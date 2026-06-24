@@ -71,7 +71,7 @@ async def create_dataset_with_csv(CSVFile: UploadFile = File(...), CSVConfig: st
     except Exception as exp:
         print(exp)
         print(traceback.format_exc())
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Error while creating the dataset")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error while creating the dataset: {exp}")
     return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")
 
 

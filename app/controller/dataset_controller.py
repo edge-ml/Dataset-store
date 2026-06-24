@@ -221,7 +221,12 @@ class DatasetController():
     def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str):
         name = config['name'] if config['name'] else (
             file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
-        df = pd.read_csv(file.file)
+        try:
+            df = pd.read_csv(file.file)
+        except UnicodeDecodeError:
+            # Tolerate non-UTF-8 files (e.g. unit strings like "m/s²" saved as Latin-1).
+            file.file.seek(0)
+            df = pd.read_csv(file.file, encoding="latin-1")
         df.columns = df.columns.str.strip()
         parser = CsvParser(df=df)
         timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format(config)
@@ -257,13 +262,17 @@ class DatasetController():
             # extract only label
             label_name = labeling_label_list[label_idx].split('_')[1]
             labelingId = label_id_labeling[label_name]['labelingId']
+            # A cell marks the label active when it holds an "x" (any case,
+            # surrounding whitespace ignored); empty cells/NaN are inactive.
+            def _is_set(v):
+                return str(v).strip().lower() == 'x'
             while idx < data_length:
-                if data[idx] == 'x':
+                if _is_set(data[idx]):
                     start = timestamps[idx]
-                    while idx < data_length and data[idx] == 'x':
+                    while idx < data_length and _is_set(data[idx]):
                         idx += 1
                     end = timestamps[idx - 1]
-                    intervals.append((start, end))                    
+                    intervals.append((start, end))
                 idx += 1
             if labelingId not in labelingsInDatasetFormat:
                     labelingsInDatasetFormat[labelingId] = []
