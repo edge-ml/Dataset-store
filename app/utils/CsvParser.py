@@ -26,25 +26,6 @@ class CsvParser():
         self.fp = pos
     
 
-    def to_labels(self):
-        lines = [x.split(",") for x in self.readLines()]
-        header = lines[0]
-        labels = []
-
-    def _calcTime(self, x):
-        pass
-
-    @staticmethod
-    def _calc_sensor_end_idx(header):
-        sensor_end_idx = np.argwhere(np.char.startswith(header, 'label_'))
-        # no label given or remaining after delete operation
-        if np.size(sensor_end_idx) == 0:
-            sensor_end_idx = len(header) + 1
-        else:
-            # take the first index
-            sensor_end_idx = sensor_end_idx[0][0]
-        return sensor_end_idx
-
     # TODO: add robustness checks to detect erroneous csv data
     def to_edge_ml_format(self, config: dict):
         ts_config = config['timeSeries']
@@ -60,13 +41,13 @@ class CsvParser():
                 column_name = f'sensor_{name}[{unit}]'
                 if column_name not in self.df.columns:
                     column_name = f'sensor_{name}'
-                self.df.drop(column_name, axis=1, inplace=True)
+                self.df.drop(column_name, axis=1, inplace=True, errors="ignore")
                 
         for labeling in labeling_config:
             if labeling['removed']:
                 for label in labeling['labels']:
                     column_name = f'label_{labeling["originalName"]}_{label}'
-                    self.df.drop(column_name, axis=1, inplace=True)
+                    self.df.drop(column_name, axis=1, inplace=True, errors="ignore")
         
         self.df.sort_values(by='time', inplace=True)
 
@@ -128,13 +109,16 @@ class CsvParser():
     def _buffer_to_numpy(self, buf):
         line_data = self.arr.decode('utf-8').splitlines()
         str_data = [x.split(",") for x in line_data]
-        if len(str_data) < 2: # Only got the header
+        if len(str_data) < 2 or not str_data[-1] or all(not cell for cell in str_data[-1]): # Only got the header / trailing newline
+            str_data = [row for row in str_data if any(cell for cell in row)]
+        if len(str_data) < 2:
             return None, None, str_data[0]
 
         df = pd.DataFrame(str_data[1:], columns=str_data[0])
 
+        time_candidates = [self.time_col] if isinstance(self.time_col, str) else list(self.time_col)
         selected_time = None
-        for t in self.time_col:
+        for t in time_candidates:
             if t in df.columns:
                 selected_time = t
         if selected_time == None:

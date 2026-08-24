@@ -2,3 +2,4 @@ DATA/*
 *.pyc
 .env
 envs/*
+.venv/

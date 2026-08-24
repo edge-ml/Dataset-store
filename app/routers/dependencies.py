@@ -1,5 +1,5 @@
 from fastapi.param_functions import Depends
-from jwt import decode, InvalidSignatureError, ExpiredSignatureError
+from jwt import decode, InvalidSignatureError, ExpiredSignatureError, InvalidTokenError
 from bson.objectid import ObjectId
 from fastapi import status, Header, HTTPException, Cookie
 from db.project import ProjectDBManager
@@ -22,9 +22,9 @@ async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=D
         user_id = ObjectId(decoded["id"])
         sub_level = decoded.get("subscriptionLevel")
         project = project_dbm.get_project(project_id)
-        project_users = [str(x) for x in project["users"]]
         if not project:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+        project_users = [str(x) for x in project["users"]]
         if str(project['admin']) != str(user_id) and str(user_id) not in project_users:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User unauthorized on project")
         return (user_id, token, sub_level)
@@ -32,8 +32,12 @@ async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=D
         print(e)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
     except ExpiredSignatureError:
-        print(e)
+        print("Token expired")
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except InvalidTokenError as e:
+        # malformed/garbled tokens must yield 401, not an unhandled 500
+        print(e)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
 
 class validateApiKey:
     def __init__(self, access_type):

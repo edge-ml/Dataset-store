@@ -5,12 +5,6 @@ from routers import dataset, deviceApi, label, labelings, csv
 import logging
 import time
 
-parser = argparse.ArgumentParser(description="Run the database-store")
-parser.add_argument('--env', default="dev", choices=["dev", "docker"])
-parser.add_argument("--num_workers", type=int, default=20, help="Number of workers for uvicorn")
-args = parser.parse_args()
-env = args.env
-
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request
@@ -119,9 +113,13 @@ async def log_requests(request: Request, call_next):
 
 
 if __name__ == "__main__":
-    if env == "dev":
+    parser = argparse.ArgumentParser(description="Run the database-store")
+    parser.add_argument('--env', default="dev", choices=["dev", "docker"])
+    parser.add_argument("--num_workers", type=int, default=20, help="Number of workers for uvicorn")
+    args = parser.parse_args()
+    if args.env == "dev":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True,
                     proxy_headers=True, forwarded_allow_ips="*")
-    if env == "docker":
+    if args.env == "docker":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=args.num_workers,
                     proxy_headers=True, forwarded_allow_ips="*")

@@ -44,7 +44,8 @@ class BinaryStore():
         
 
     def getPart(self, start_time, end_time, max_resolution=None):
-        max_resolution = int(float(max_resolution))
+        if max_resolution is not None:
+            max_resolution = int(float(max_resolution))
 
         if len(self.time_arr) < 200:
             res = np.asarray([self.time_arr, self.data_arr]).T

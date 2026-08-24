@@ -70,13 +70,6 @@ class DatasetController():
         del metaData["data"]
         return metaData, tsValues
 
-    def _convertObejctIdsToStr(self, data):
-        data["projectId"] = str(data["projectId"])
-        data["_id"] = str(data["_id"])
-        for i, t in enumerate(data["timeSeries"]):
-            data["timeSeries"][i]["_id"] = str(t["_id"])
-        return data
-
     def getDatasetById(self, dataset_id, project, onlyMeta=False):
         # Read dataset from database
         datasetMeta = self.dbm.getDatasetById(dataset_id, project)
@@ -97,7 +90,7 @@ class DatasetController():
         datasetMeta["projectId"] = ObjectId(project)
         if user_id is not None:
             datasetMeta["userId"] = ObjectId(user_id)
-            newDatasetMeta = self.dbm.addDataset(datasetMeta)
+        newDatasetMeta = self.dbm.addDataset(datasetMeta)
         try:
             for i, (t, newt) in enumerate(zip(datasetMeta["timeSeries"], newDatasetMeta["timeSeries"])):
                 metaData, tsValues = self._splitMeta_Data(t)
@@ -115,13 +108,6 @@ class DatasetController():
             raise e
         return newDatasetMeta
 
-    def _convertTimeSeriesObjectIdToStr(self, ts_array):
-        res = []
-        for t in ts_array:
-            t["_id"] = str(t["_id"])
-            res.append(t)
-        return res
-
     def _populateLabelings(self, datasets, projectId):
         labelings = self.dbm_labeling.get(projectId)
         labeling_mapping = {entry['_id']: entry['name'] for entry in labelings}
@@ -136,8 +122,9 @@ class DatasetController():
                                 'end': label['end'], 
                                 'label': label_mapping[label['type']]}
                                for label in labeling['labels']]}
-                   for labeling in ds['labelings']]
-        return datasets
+                   for labeling in dataset['labelings']]
+            ds.append(dataset)
+        return ds
 
     def getDatasetInProject(self, projectId, includeTimeseriesData=False, skip=None, limit=None, sort=None):
         datasets = self.dbm.getDatasetsInProjet(projectId)
@@ -231,7 +218,7 @@ class DatasetController():
         parser = CsvParser(df=df)
         timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format(config)
 
-        if sensor_data is None:
+        if sensor_data is None or sensor_data.shape[1] == 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
                                 detail="The file has no data")
 
@@ -279,8 +266,8 @@ class DatasetController():
             for start, end in intervals:
                 labelingsInDatasetFormat[labelingId].append({
                     'type': label_id_labeling[label_name]['_id'],
-                    'start': start,
-                    'end': end,
+                    'start': int(start),
+                    'end': int(end),
                 })
         
         labelingsInDatasetFormat = [{
@@ -292,8 +279,8 @@ class DatasetController():
             'name': name,
             'timeSeries': [{
                 'name': sensor,
-                'start': timestamps[0],
-                'end': timestamps[-1],
+                'start': int(timestamps[0]),
+                'end': int(timestamps[-1]),
                 'unit': units[sensor_idx],
                 'data': np.column_stack((timestamps, sensor_data.iloc[:, sensor_idx]))
             } for sensor_idx, sensor in enumerate(sensor_names)],
@@ -423,16 +410,20 @@ class DatasetController():
 
 
             dataset_labeling = [{"labelingId": newLabeling["_id"], "labels": dataset_labels}] if labeling else []
+            if not starts:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No data found in uploaded files")
             timeSeries = [{"start": s, "end": e, "_id": tid, "name": fName + "_" + h, "samplingRate": s_rate, "length": l} for s, e, tid, fName, h, s_rate, l in zip(starts, ends, tsIds, file_names, headers, sampling_rates, lengths)]
             dataset = {"name": dataset_name, "userId": userId, "projectId": projectId, "start": min(starts), "end": max(ends), "timeSeries": timeSeries,
             "labelings": dataset_labeling, "metaData": info.metaData}
             try:
                 newDatasetMeta = self.dbm.addDataset(dataset)
-            except:
+            except Exception:
                 for tsId in tsIds:
-                    BinaryStore(tsId).delete();
-                    raise e
+                    BinaryStore(tsId).delete()
+                raise
             return True
+        except HTTPException:
+            raise
         except Exception as e:
             print("Error", e)
             traceback.print_exc()
@@ -459,8 +450,10 @@ class DatasetController():
         
         # Add labelings
         for labeling in dataset["labelings"]:
-            # Get labeling from db
+            # Get labeling from db; skip definitions that were deleted in the meantime
             labeling_definition = self.dbm_labeling.get_single(projectId, labeling["labelingId"])
+            if labeling_definition is None:
+                continue
             labeling_name = labeling_definition["name"]
             for label in labeling_definition["labels"]:
                 dataset_labels = filter(lambda x: x["type"] == label["_id"], labeling["labels"])
