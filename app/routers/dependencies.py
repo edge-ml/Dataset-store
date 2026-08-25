@@ -13,9 +13,14 @@ deviceApi_dbm = DeviceApiManager()
 async def extract_project_id(project: str = Header(...)):
     return project
 
-async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=Depends(extract_project_id)):
+async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=Depends(extract_project_id), authorization: Annotated[Union[str, None], Header()] = None):
     try:
-        token = jwt
+        # Prefer the Authorization bearer header, fall back to the jwt cookie
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.replace("Bearer ", "").strip()
+        else:
+            token = jwt
+            
         decoded = decode(token, SECRET_KEY, algorithms=["HS256"])
         if "exp" not in decoded:
             raise ExpiredSignatureError
@@ -38,6 +43,34 @@ async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=D
         # malformed/garbled tokens must yield 401, not an unhandled 500
         print(e)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+
+def _decode_user_id(authorization, jwt) -> str:
+    try:
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.replace("Bearer ", "").strip()
+        else:
+            token = jwt
+        decoded = decode(token, SECRET_KEY, algorithms=["HS256"])
+        if "exp" not in decoded:
+            raise ExpiredSignatureError
+        return ObjectId(decoded["id"])
+    except InvalidSignatureError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+    except ExpiredSignatureError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except InvalidTokenError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+
+
+async def validate_user_no_project(authorization: Annotated[Union[str, None], Header()] = None, jwt: Annotated[Union[str, None], Cookie()] = None) -> str:
+    """Validate the bearer token / jwt cookie without requiring a project header.
+
+    Used by routes migrated from the backend service (e.g. the projects list)
+    which must work before any project has been selected.
+    Returns the authenticated user id.
+    """
+    return _decode_user_id(authorization=authorization, jwt=jwt)
+
 
 class validateApiKey:
     def __init__(self, access_type):

@@ -19,15 +19,18 @@ os.environ.update({
     "MONGO_URI": "mongodb://localhost:27017/",
     "PROJECT_DBNAME": "backend_test",
     "PROJECT_COLLNAME": "projects",
-    "DATASTORE_DBNAME": "dataset_store",
+    "DATASTORE_DBNAME": "dataset_store_test",
     "DATASTORE_COLLNAME": "datasets",
-    "TIMESERIES_DBNAME": "ts_db",
+    "TIMESERIES_DBNAME": "ts_db_test",
     "TIMESERIES_COLLNAME": "timeSeries",
     "LABELING_COLLNAME": "labelings",
     "DEVICE_API_COLLNAME": "deviceapis",
     "CSV_COLLNAME": "csv_downloads",
     "ASYNC_UPLOAD_COLNAME": "async_upload",
     "SECRET_KEY": "test-secret-key",
+    # Pin the users db so a developer's local .env (e.g. DATABASE_COLLECTION_AUTH
+    # pointing at "auth_live") cannot leak into the test run.
+    "DATABASE_COLLECTION_AUTH": "auth_test",
     "TS_STORE_MECHANISM": "FS",
     "TSDATA": _TMP_FS,
     "RAW_UPLOAD_DATA": _TMP_RAW,
@@ -91,7 +94,24 @@ class Seeder:
     def async_uploads(self):
         return fake_client[DATASTORE_DBNAME][ASYNC_UPLOAD_COLNAME]
 
+    @property
+    def users_auth(self):
+        from internal.config import AUTH_DBNAME
+        return fake_client[AUTH_DBNAME]["users"]
+
     # -- seeders -------------------------------------------------------------
+    def auth_user(self, user_id=None, user_name=None):
+        """Seed a user account in the auth collection so projects can resolve it."""
+        uid = user_id or ObjectId()
+        if user_name is None:
+            user_name = f"user-{str(uid)[-6:]}"
+        self.users_auth.update_one(
+            {"_id": uid},
+            {"$set": {"userName": user_name, "email": f"{user_name}@edge-ml.test"}},
+            upsert=True,
+        )
+        return str(uid)
+
     def project(self, admin=None, users=()):
         self.projects.insert_one({
             "_id": self.project_id,

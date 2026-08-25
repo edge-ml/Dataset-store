@@ -2,6 +2,8 @@ import uvicorn
 import argparse
 from contextlib import asynccontextmanager
 from routers import dataset, deviceApi, label, labelings, csv
+from routers import auth
+from routers import projects, devices, apikeys, arduino_firmware
 import logging
 import time
 
@@ -80,6 +82,40 @@ class DatasetStore(FastAPI):
             labelings.router,
             prefix="/ds/labelings",
             tags=["Labelings"]
+        )
+
+        # Auth (previously provided by the standalone authentication service)
+        self.include_router(
+            auth.router,
+            prefix="/auth",
+            tags=["Auth"]
+        )
+        self.include_router(
+            auth.router,
+            prefix="/ds/auth",
+            include_in_schema=False,
+        )
+
+        # Routes migrated from the Node backend service (frontend API_URI)
+        self.include_router(
+            projects.router,
+            prefix="/api/projects",
+            tags=["Projects"]
+        )
+        self.include_router(
+            devices.router,
+            prefix="/api/devices",
+            tags=["Devices"]
+        )
+        self.include_router(
+            apikeys.router,
+            prefix="/api/deviceApi",
+            tags=["DeviceApiKeys"]
+        )
+        self.include_router(
+            arduino_firmware.router,
+            prefix="/api/arduinoFirmware",
+            tags=["ArduinoFirmware"]
         )
 
 

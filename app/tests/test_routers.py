@@ -170,7 +170,7 @@ class TestDatasetsRouter:
         c = self._seeder.cookies()
 
         from utils.json_encoder import JSONEncoder
-        full = fake_client["dataset_store"]["datasets"].find_one({})
+        full = fake_client["dataset_store_test"]["datasets"].find_one({})
         full_json = json.loads(json.dumps(full, cls=JSONEncoder))
         r = client.put(f"/ds/datasets/{meta['_id']}", json=full_json, headers=h, cookies=c)
         assert r.status_code == 200
