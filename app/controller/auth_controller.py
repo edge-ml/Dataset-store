@@ -85,15 +85,10 @@ class AuthError(Exception):
 
 
 def register_user(data: Dict[str, Any]) -> None:
-    email = data.get("email")
-    user_name = data.get("userName")
+    user_name = str(data.get("userName") or "").strip()
     password = data.get("password")
 
-    if not email:
-        raise AuthError(400, "please enter your email address")
-    if not users_dbm.is_valid_email(email):
-        raise AuthError(400, "email address not valid")
-    if not user_name or not str(user_name).strip():
+    if not user_name:
         raise AuthError(400, "please enter a username")
     if not password:
         raise AuthError(400, "please enter a password")
@@ -101,8 +96,7 @@ def register_user(data: Dict[str, Any]) -> None:
         raise AuthError(400, "password needs at least 8 characters")
 
     try:
-        users_dbm.create_user({
-            "email": email,
+        created = users_dbm.create_user({
             "userName": user_name,
             "password": hash_password(password),
             "refreshToken": None,
@@ -115,26 +109,21 @@ def register_user(data: Dict[str, Any]) -> None:
         message = "This account already exists."
         key_field = next(iter(details.get("keyPattern", {}) or {}), "")
         detail_text = str(details.get("errmsg", ""))
-        if key_field == "email" or "email" in detail_text:
-            message = "This email address is already registered."
-        elif key_field == "userName" or "username" in detail_text.lower():
+        if key_field == "userName" or "username" in detail_text.lower():
             message = "This username is already taken."
         raise AuthError(409, message) from error
 
     # give the new account a refresh token like the Node service did
-    created = users_dbm.get_by_email(email)
     users_dbm.update_user(created["_id"], {"refreshToken": create_refresh_token(created["_id"])})
 
 
-def login(identifier: str, password: str) -> Dict[str, Any]:
+def login(user_name: str, password: str) -> Dict[str, Any]:
     """Validate credentials and return fresh tokens."""
-    if not identifier:
+    user_name = (user_name or "").strip()
+    if not user_name:
         raise AuthError(404, "User not found")
 
-    if users_dbm.is_valid_email(identifier.lower()):
-        user = users_dbm.get_by_email(identifier)
-    else:
-        user = users_dbm.get_by_user_name(identifier)
+    user = users_dbm.get_by_user_name(user_name) or users_dbm.get_by_padded_user_name(user_name)
 
     if not user:
         raise AuthError(404, "User not found")
@@ -190,31 +179,18 @@ def get_user(user: Dict[str, Any]) -> Dict[str, Any]:
     return _public_user(user)
 
 
-def delete_user(user: Dict[str, Any], email: Optional[str]) -> str:
-    if not email:
+def delete_user(user: Dict[str, Any], user_name: Optional[str]) -> str:
+    if not user_name:
         raise AuthError(
             400,
             "This route deletes a user. To delete your user account, "
-            "please provide your email address in the request body. "
+            "please provide your username in the request body. "
             "Be careful, this action cannot be undone",
         )
-    if email.lower() != user["email"]:
-        raise AuthError(400, "Provided e-mail does not match user e-mail.")
+    if str(user_name).strip() != user["userName"]:
+        raise AuthError(400, "Provided username does not match your username.")
     users_dbm.delete_user_by_id(user["_id"])
-    return f"Deleted user with e-mail: {user['email']}"
-
-
-def change_mail(user: Dict[str, Any], email: Optional[str]) -> str:
-    if not email or not users_dbm.is_valid_email(email):
-        raise AuthError(400, f"{email} is not a valid e-mail address")
-    normalized = email.strip().lower()
-    if users_dbm.is_taken("email", normalized, exclude_id=user["_id"]):
-        raise AuthError(400, "E-mail already exists")
-    try:
-        users_dbm.update_user(user["_id"], {"email": normalized})
-    except DuplicateUserError:
-        raise AuthError(400, "E-mail already exists")
-    return f"Changed e-mail address from {user['email']} to {normalized}"
+    return f"Deleted user {user['userName']}"
 
 
 def change_user_name(user: Dict[str, Any], user_name: Optional[str]) -> str:

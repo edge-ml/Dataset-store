@@ -4,7 +4,7 @@ Replaces the mongoose `User` model of the standalone authentication service.
 The documents keep the same shape so existing auth databases stay readable:
 
     {
-        email: str (unique, lowercased),
+        email: str | None (legacy, unique when present, lowercased),
         provider: str | None,
         providerId: str | None,
         userName: str (unique),
@@ -14,19 +14,16 @@ The documents keep the same shape so existing auth databases stay readable:
         subscriptionLevel: 'standard' | 'upgraded' | 'unlimited'
     }
 """
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-import re
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 
 from internal.config import MONGO_URI, AUTH_DBNAME
 
-EMAIL_REGEX = re.compile(
-    r"^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$"
-)
 
 class DuplicateUserError(DuplicateKeyError):
     """Raised when a unique constraint (email / userName) is violated."""
@@ -39,7 +36,12 @@ class UserDBManager:
         self._ensure_indexes()
 
     def _ensure_indexes(self) -> None:
-        self.users.create_index("email", unique=True)
+        # accounts are username-only now, so email may be absent. the old
+        # non-sparse unique index would reject a second user without email.
+        email_index = self.users.index_information().get("email_1")
+        if email_index and not email_index.get("sparse"):
+            self.users.drop_index("email_1")
+        self.users.create_index("email", unique=True, sparse=True)
         self.users.create_index("userName", unique=True)
 
     # ------------------------------------------------------------------ #
@@ -48,15 +50,13 @@ class UserDBManager:
     def get_by_id(self, user_id) -> Optional[Dict[str, Any]]:
         return self.users.find_one({"_id": ObjectId(user_id)})
 
-    def get_by_email(self, email: str) -> Optional[Dict[str, Any]]:
-        return self.users.find_one({"email": email.lower()})
-
     def get_by_user_name(self, user_name: str) -> Optional[Dict[str, Any]]:
         return self.users.find_one({"userName": user_name})
 
-    @staticmethod
-    def is_valid_email(email: str) -> bool:
-        return bool(email) and bool(EMAIL_REGEX.match(email))
+    def get_by_padded_user_name(self, user_name: str) -> Optional[Dict[str, Any]]:
+        """Match legacy usernames stored with leading/trailing whitespace."""
+        escaped = re.escape(user_name)
+        return self.users.find_one({"userName": {"$regex": f"^\\s*{escaped}\\s*$"}})
 
     def ids_for_user_names(self, user_names: List[str]) -> List[Dict[str, Any]]:
         docs = self.users.find({"userName": {"$in": list(user_names)}})
@@ -100,7 +100,6 @@ class UserDBManager:
     def create_user(self, data: Dict[str, Any]) -> Dict[str, Any]:
         now = datetime.now(timezone.utc)
         document = {
-            "email": str(data["email"]).strip().lower(),
             "provider": data.get("provider"),
             "providerId": data.get("providerId"),
             "userName": str(data["userName"]).strip(),
@@ -110,8 +109,11 @@ class UserDBManager:
             "subscriptionLevel": data.get("subscriptionLevel", "standard"),
             "createdAt": now,
         }
+        if data.get("email"):
+            document["email"] = str(data["email"]).strip().lower()
         # explicit checks so behaviour is identical on real mongo and mongomock
-        self._assert_not_taken("email", document["email"])
+        if "email" in document:
+            self._assert_not_taken("email", document["email"])
         self._assert_not_taken("userName", document["userName"])
         try:
             result = self.users.insert_one(document)
@@ -148,10 +150,6 @@ class UserDBManager:
 
     def update_user(self, user_id, fields: Dict[str, Any]) -> None:
         self.users.update_one({"_id": ObjectId(user_id)}, {"$set": fields})
-
-    def delete_user_by_email(self, email: str) -> int:
-        result = self.users.delete_one({"email": email.lower()})
-        return result.deleted_count
 
     def delete_user_by_id(self, user_id) -> int:
         result = self.users.delete_one({"_id": ObjectId(user_id)})

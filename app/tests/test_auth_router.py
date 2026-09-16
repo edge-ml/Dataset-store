@@ -44,39 +44,34 @@ def seed_user(users, **overrides):
 class TestRegister:
     def test_register_success(self, client, users):
         r = client.post("/auth/register", json={
-            "email": "New@Edge-ML.org", "password": "supersecret1", "userName": "newbie",
+            "password": "supersecret1", "userName": "newbie",
         })
         assert r.status_code == 201
         assert r.json() == {"message": "Successfully created user!"}
-        doc = users.find_one({"email": "new@edge-ml.org"})
-        assert doc["userName"] == "newbie"
+        doc = users.find_one({"userName": "newbie"})
+        assert "email" not in doc
         assert doc["password"].startswith("$2")  # bcrypt hash
         assert doc["role"] == "user"
 
-    def test_register_invalid_email(self, client):
-        r = client.post("/auth/register", json={
-            "email": "not-an-email", "password": "supersecret1", "userName": "x",
-        })
+    def test_register_without_email_twice(self, client, users):
+        for name in ("first", "second"):
+            r = client.post("/auth/register", json={"password": "supersecret1", "userName": name})
+            assert r.status_code == 201
+
+    def test_register_missing_username(self, client):
+        r = client.post("/auth/register", json={"password": "supersecret1", "userName": "  "})
         assert r.status_code == 400
 
     def test_register_short_password(self, client):
         r = client.post("/auth/register", json={
-            "email": "a@b.org", "password": "short", "userName": "x",
+            "password": "short", "userName": "x",
         })
         assert r.status_code == 400
-
-    def test_register_duplicate_email(self, client, users):
-        seed_user(users)
-        r = client.post("/auth/register", json={
-            "email": "tester@edge-ml.com", "password": "supersecret1", "userName": "other",
-        })
-        assert r.status_code == 409
-        assert "already registered" in r.json()["detail"]
 
     def test_register_duplicate_username(self, client, users):
         seed_user(users)
         r = client.post("/auth/register", json={
-            "email": "other@edge-ml.com", "password": "supersecret1", "userName": "tester",
+            "password": "supersecret1", "userName": "tester",
         })
         assert r.status_code == 409
         assert "username is already taken" in r.json()["detail"]
@@ -87,28 +82,44 @@ class TestLoginRefresh:
         from controller.auth_controller import hash_password
         return seed_user(users, password=hash_password("correct-horse"))
 
-    def test_login_by_email(self, client, users):
+    def test_login_by_username(self, client, users):
         self._seed_with_password(users)
-        r = client.post("/auth/login", json={"email": "tester@edge-ml.com", "password": "correct-horse"})
+        r = client.post("/auth/login", json={"userName": "tester", "password": "correct-horse"})
         assert r.status_code == 200
         body = r.json()
         decoded = pyjwt.decode(body["access_token"], SECRET_KEY, algorithms=["HS256"])
-        assert decoded["email"] == "tester@edge-ml.com"
+        assert decoded["userName"] == "tester"
         # refresh token must verify with its own secret
         pyjwt.decode(body["refresh_token"], SERVER_REFRESH_SECRET, algorithms=["HS256"])
 
-    def test_login_by_username(self, client, users):
+    def test_login_legacy_email_field(self, client, users):
         self._seed_with_password(users)
         r = client.post("/auth/login", json={"email": "tester", "password": "correct-horse"})
         assert r.status_code == 200
 
+    def test_login_by_email_rejected(self, client, users):
+        self._seed_with_password(users)
+        r = client.post("/auth/login", json={"userName": "tester@edge-ml.com", "password": "correct-horse"})
+        assert r.status_code == 404
+
+    def test_login_trims_username(self, client, users):
+        self._seed_with_password(users)
+        r = client.post("/auth/login", json={"userName": " tester ", "password": "correct-horse"})
+        assert r.status_code == 200
+
+    def test_login_legacy_padded_username(self, client, users):
+        from controller.auth_controller import hash_password
+        seed_user(users, userName=" padded ", password=hash_password("correct-horse"))
+        r = client.post("/auth/login", json={"userName": "padded", "password": "correct-horse"})
+        assert r.status_code == 200
+
     def test_login_wrong_password(self, client, users):
         self._seed_with_password(users)
-        r = client.post("/auth/login", json={"email": "tester@edge-ml.com", "password": "wrong"})
+        r = client.post("/auth/login", json={"userName": "tester", "password": "wrong"})
         assert r.status_code == 404
 
     def test_login_unknown_user(self, client):
-        r = client.post("/auth/login", json={"email": "ghost@edge-ml.com", "password": "x"})
+        r = client.post("/auth/login", json={"userName": "ghost", "password": "x"})
         assert r.status_code == 404
 
 
@@ -126,28 +137,17 @@ class TestUser:
 
 
 class TestUserManagement:
-    def test_unregister_requires_matching_email(self, client, users):
+    def test_unregister_requires_matching_username(self, client, users):
         doc = seed_user(users)
-        r = client.request("DELETE", "/auth/unregister", headers=bearer(doc["_id"]), json={"email": "wrong@edge-ml.com"})
+        r = client.request("DELETE", "/auth/unregister", headers=bearer(doc["_id"]), json={"userName": "wrong"})
         assert r.status_code == 400
 
     def test_unregister(self, client, users):
         doc = seed_user(users)
         r = client.request("DELETE", "/auth/unregister", headers=bearer(doc["_id"]),
-                           json={"email": "tester@edge-ml.com"})
+                           json={"userName": "tester"})
         assert r.status_code == 200
         assert users.find_one({"_id": doc["_id"]}) is None
-
-    def test_change_mail(self, client, users):
-        doc = seed_user(users)
-        r = client.put("/auth/changeMail", headers=bearer(doc["_id"]), json={"email": "fresh@edge-ml.com"})
-        assert r.status_code == 200
-        assert users.find_one({"_id": doc["_id"]})["email"] == "fresh@edge-ml.com"
-
-    def test_change_mail_invalid(self, client, users):
-        doc = seed_user(users)
-        r = client.put("/auth/changeMail", headers=bearer(doc["_id"]), json={"email": "nope"})
-        assert r.status_code == 400
 
     def test_change_username(self, client, users):
         doc = seed_user(users)

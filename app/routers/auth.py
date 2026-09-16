@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse, RedirectResponse
 import internal.config as config
 from controller.auth_controller import (
     AuthError,
-    change_mail,
     change_password,
     change_user_name,
     create_access_token,
@@ -60,7 +59,8 @@ def register(body: Dict[str, Any]):
 @router.post("/login")
 def login_route(body: Dict[str, Any]):
     try:
-        tokens = login(body.get("email"), body.get("password"))
+        # "email" is the legacy field name older clients send the username in
+        tokens = login(body.get("userName") or body.get("email"), body.get("password"))
     except AuthError as error:
         raise _auth_error(error)
     response = JSONResponse(tokens)
@@ -87,16 +87,7 @@ def current_user(user: Dict[str, Any] = Depends(require_user)):
 @router.delete("/unregister")
 def unregister(body: Dict[str, Any], user: Dict[str, Any] = Depends(require_user)):
     try:
-        message = delete_user(user, body.get("email"))
-    except AuthError as error:
-        raise _auth_error(error)
-    return {"message": message}
-
-
-@router.put("/changeMail")
-def change_mail_route(body: Dict[str, Any], user: Dict[str, Any] = Depends(require_user)):
-    try:
-        message = change_mail(user, body.get("email"))
+        message = delete_user(user, body.get("userName"))
     except AuthError as error:
         raise _auth_error(error)
     return {"message": message}
