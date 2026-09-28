@@ -128,23 +128,24 @@ class DatasetDBManager:
         query = {"_id": ObjectId(dataset_id), "timeSeries._id": ObjectId(timeSeries_id), "projectId": ObjectId(project_id)}
         update = {"$set": {"timeSeries.$.unit": unit, "timeSeries.$.scaling": float(scaling), "timeSeries.$.offset": float(offset)}}
         update_result = self.ds_collection.update_one(query, update)
-        
+        return update_result
     def deleteProject(self, project):
-        self.ds_collection.delete_many({"_id": ObjectId(project)})
+        self.ds_collection.delete_many({"projectId": ObjectId(project)})
 
 
     # For modifying dataset-labels
 
     def updateDatasetLabel(self, project_id, dataset_id, labeling_id, label_Id, newLabel):
-        newLabel = DatasetLabel(newLabel)
-        query = {"labelings": {"exist": True}, "_id": ObjectId(dataset_id), "projectId": ObjectId(project_id), "labeling.labelingId": labeling_id}
-        update = {"$set": {"labelings.$[].labels.$[label]": newLabel}}
-        array_filters = [{"label._id": label_Id}]
-        self.ds_collection.update_one(query, update, array_filters=array_filters, upsert=True)
-
-    def updateTimeSeriesUnit(self, id, timeSeriesId, project_id, unit):
-        query = {"_id": ObjectId(id), "projectId": ObjectId(project_id), "timeSeries._id": ObjectId(timeSeriesId)}
-        print("unit:", unit)
-        update = {"$set": {"timeSeries.$.unit": unit}}
-        result = self.ds_collection.update_one(query, update)
-        print(result)
+        newLabel = DatasetLabel.parse_obj(newLabel).dict(by_alias=True)
+        dataset = self.getDatasetById(dataset_id, project_id)
+        if dataset is None:
+            return None
+        for labeling in dataset["labelings"]:
+            if ObjectId(labeling["labelingId"]) != ObjectId(labeling_id):
+                continue
+            for i, label in enumerate(labeling["labels"]):
+                if str(label["_id"]) == str(label_Id):
+                    labeling["labels"][i] = newLabel
+        self.ds_collection.replace_one(
+            {"_id": ObjectId(dataset_id), "projectId": ObjectId(project_id)}, dataset)
+        return newLabel

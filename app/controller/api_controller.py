@@ -40,7 +40,7 @@ def appendDataset(uploadData, userId, projectId, dataset_id):
             dataset["timeSeries"][index]["end"] = end
         dbm.updateDataset(dataset["_id"], projectId, dataset)
         tmpStart = min(x["start"] for x in dataset["timeSeries"])
-        tmpEnd = min(x["end"] for x in dataset["timeSeries"])
+        tmpEnd = max(x["end"] for x in dataset["timeSeries"])
         if labeling:
             createdLabeling = createLabeling(projectId, {"name": labeling.labelingName, "labels": [{"name": labeling.labelName, "color": random_hex_color()}]})
             labelType = [x for x in createdLabeling["labels"] if x["name"] == labeling.labelName][0]["_id"]

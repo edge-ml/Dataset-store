@@ -2,14 +2,10 @@ import uvicorn
 import argparse
 from contextlib import asynccontextmanager
 from routers import dataset, deviceApi, label, labelings, csv
+from routers import auth
+from routers import projects, devices, apikeys, arduino_firmware
 import logging
 import time
-
-parser = argparse.ArgumentParser(description="Run the database-store")
-parser.add_argument('--env', default="dev", choices=["dev", "docker"])
-parser.add_argument("--num_workers", type=int, default=20, help="Number of workers for uvicorn")
-args = parser.parse_args()
-env = args.env
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -88,6 +84,40 @@ class DatasetStore(FastAPI):
             tags=["Labelings"]
         )
 
+        # Auth (previously provided by the standalone authentication service)
+        self.include_router(
+            auth.router,
+            prefix="/auth",
+            tags=["Auth"]
+        )
+        self.include_router(
+            auth.router,
+            prefix="/ds/auth",
+            include_in_schema=False,
+        )
+
+        # Routes migrated from the Node backend service (frontend API_URI)
+        self.include_router(
+            projects.router,
+            prefix="/api/projects",
+            tags=["Projects"]
+        )
+        self.include_router(
+            devices.router,
+            prefix="/api/devices",
+            tags=["Devices"]
+        )
+        self.include_router(
+            apikeys.router,
+            prefix="/api/deviceApi",
+            tags=["DeviceApiKeys"]
+        )
+        self.include_router(
+            arduino_firmware.router,
+            prefix="/api/arduinoFirmware",
+            tags=["ArduinoFirmware"]
+        )
+
 
 app = DatasetStore()
 
@@ -119,9 +149,13 @@ async def log_requests(request: Request, call_next):
 
 
 if __name__ == "__main__":
-    if env == "dev":
+    parser = argparse.ArgumentParser(description="Run the database-store")
+    parser.add_argument('--env', default="dev", choices=["dev", "docker"])
+    parser.add_argument("--num_workers", type=int, default=20, help="Number of workers for uvicorn")
+    args = parser.parse_args()
+    if args.env == "dev":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, reload=True,
                     proxy_headers=True, forwarded_allow_ips="*")
-    if env == "docker":
+    if args.env == "docker":
         uvicorn.run("main:app", host="0.0.0.0", port=3004, workers=args.num_workers,
                     proxy_headers=True, forwarded_allow_ips="*")

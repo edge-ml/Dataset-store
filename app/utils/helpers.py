@@ -29,8 +29,8 @@ class PyObjectId(ObjectId):
         return {}
 
 def parseTime(timestamp):
-    if "." not in timestamp:
-        return 
+    if "." not in str(timestamp):
+        raise ValueError("Timestamp is invalid")
     t_split = str(timestamp).split(".")
     if len(t_split[0]) == 10:
         return np.array(t_split[0] + t_split[1][0:3]).astype(np.uint64)

@@ -1,5 +1,5 @@
 from fastapi.param_functions import Depends
-from jwt import decode, InvalidSignatureError, ExpiredSignatureError
+from jwt import decode, InvalidSignatureError, ExpiredSignatureError, InvalidTokenError
 from bson.objectid import ObjectId
 from fastapi import status, Header, HTTPException, Cookie
 from db.project import ProjectDBManager
@@ -13,18 +13,23 @@ deviceApi_dbm = DeviceApiManager()
 async def extract_project_id(project: str = Header(...)):
     return project
 
-async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=Depends(extract_project_id)):
+async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=Depends(extract_project_id), authorization: Annotated[Union[str, None], Header()] = None):
     try:
-        token = jwt
+        # Prefer the Authorization bearer header, fall back to the jwt cookie
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.replace("Bearer ", "").strip()
+        else:
+            token = jwt
+            
         decoded = decode(token, SECRET_KEY, algorithms=["HS256"])
         if "exp" not in decoded:
             raise ExpiredSignatureError
         user_id = ObjectId(decoded["id"])
         sub_level = decoded.get("subscriptionLevel")
         project = project_dbm.get_project(project_id)
-        project_users = [str(x) for x in project["users"]]
         if not project:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+        project_users = [str(x) for x in project["users"]]
         if str(project['admin']) != str(user_id) and str(user_id) not in project_users:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="User unauthorized on project")
         return (user_id, token, sub_level)
@@ -32,8 +37,40 @@ async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=D
         print(e)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
     except ExpiredSignatureError:
-        print(e)
+        print("Token expired")
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except InvalidTokenError as e:
+        # malformed/garbled tokens must yield 401, not an unhandled 500
+        print(e)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+
+def _decode_user_id(authorization, jwt) -> str:
+    try:
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.replace("Bearer ", "").strip()
+        else:
+            token = jwt
+        decoded = decode(token, SECRET_KEY, algorithms=["HS256"])
+        if "exp" not in decoded:
+            raise ExpiredSignatureError
+        return ObjectId(decoded["id"])
+    except InvalidSignatureError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+    except ExpiredSignatureError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+    except InvalidTokenError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
+
+
+async def validate_user_no_project(authorization: Annotated[Union[str, None], Header()] = None, jwt: Annotated[Union[str, None], Cookie()] = None) -> str:
+    """Validate the bearer token / jwt cookie without requiring a project header.
+
+    Used by routes migrated from the backend service (e.g. the projects list)
+    which must work before any project has been selected.
+    Returns the authenticated user id.
+    """
+    return _decode_user_id(authorization=authorization, jwt=jwt)
+
 
 class validateApiKey:
     def __init__(self, access_type):

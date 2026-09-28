@@ -91,7 +91,7 @@ async def _processData(info, files : List[UploadFile], projectId, userId, proces
                             if not chunk:
                                 break
                             f.write(chunk)
-                        file.seek(0)
+                        await file.seek(0)
             else:
                 raise Exception("Folder already exists")
 
@@ -143,7 +143,7 @@ async def _processData(info, files : List[UploadFile], projectId, userId, proces
             asyncDB.setStatus_finished(processId)
         except Exception as e:
             # Delete all saved datasets when there is an exception
-            asyncDB.setError(processId, e)
+            asyncDB.setError(processId, str(e))
             for tsId in tsIds:
                 BinaryStore(tsId).delete()
             if saveFolderPath is not None:
@@ -158,16 +158,17 @@ async def _processData(info, files : List[UploadFile], projectId, userId, proces
             newDatasetMeta = dbm.addDataset(dataset)
         except Exception as e:
             for tsId in tsIds:
-                BinaryStore(tsId).delete();
-                asyncDB.setError(processId, e)
-                if saveFolderPath is not None:
-                    shutil.rmtree(saveFolderPath)
+                BinaryStore(tsId).delete()
+            asyncDB.setError(processId, str(e))
+            if saveFolderPath is not None:
+                shutil.rmtree(saveFolderPath)
             raise e
         return True
     except Exception as e:
         print("Error", e)
         print(traceback.format_exc())
         asyncDB.setError(processId, str(e))
+        raise
 
 
 

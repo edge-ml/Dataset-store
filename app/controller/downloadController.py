@@ -10,6 +10,8 @@ from db.dataset import DatasetDBManager
 from db.project import ProjectDBManager
 import traceback
 import time
+import asyncio
+from fastapi import HTTPException
 from fastapi import HTTPException
 import tempfile
 import os
@@ -24,26 +26,26 @@ dataset_db = DatasetDBManager()
 
 # Function to check and delete items older than 1 hour from downloadData
 def delete_old_items():
-    res = db.getOlder(1)
+    res = db.getOlder(60 * 60)
     for r in res:
-        os.remove(r.filePath)
+        if os.path.exists(r.filePath):
+            os.remove(r.filePath)
         db.delete(r.downloadId)
 
 # Register a task to periodically delete old items
-def schedule_delete_task():
+async def schedule_delete_task(interval=5):
     while True:
+        await asyncio.sleep(interval)
         delete_old_items()
-        time.sleep(5)
 
 # Start the task in the background
-background_task = BackgroundTasks()
-background_task.add_task(schedule_delete_task)
-
 app = FastAPI()
 
 @app.on_event("startup")
 async def startup_event():
-    background_task()
+    # Run the cleanup-loop as a background task; awaiting it inline would block
+    # the event loop (and therefore the whole application startup) forever.
+    asyncio.create_task(schedule_delete_task())
 
 # @asynccontextmanager
 # async def lifespan(app: FastAPI):
@@ -104,7 +106,7 @@ async def get_status(user_id):
 async def get_download_data(id):
     res = db.get(id)
     if res.status < 100:
-        raise Exception("File not ready yet")
+        raise HTTPException(status_code=409, detail="File not ready yet")
 
     if isinstance(res, DBEntryProject):
         with open(res.filePath, "rb") as file:
