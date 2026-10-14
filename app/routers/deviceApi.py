@@ -35,9 +35,18 @@ class TimeSeriesDataModel(BaseModel):
     name: str
     data: List[Tuple[int, float]]
 
+class DeviceLabelModal(BaseModel):
+    labelingName: str
+    labelName: str
+    start: int  # unix ms
+    end: int
+
 class IncrementUploadModal(BaseModel):
-    data: List[TimeSeriesDataModel]    
+    data: List[TimeSeriesDataModel] = []
+    # one label over the whole dataset (as uploaded so far)
     labeling: InitDatasetModalLabeling | None = None
+    # labels over time ranges, e.g. walk 0-10s, run 10-20s
+    labels: List[DeviceLabelModal] = []
 
 
 
@@ -50,14 +59,10 @@ async def init_dataset(body: InitDatasetModal, apiData=Depends(validateApiKey('w
 
 @router.post("/dataset/append/{api_key}/{dataset_id}")
 async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends(validateApiKey('write'))):
-    try:
-        with thread_safe(dataset_id):
-            userId = apiData["userId"]
-            projectId = apiData["projectId"]
-            appendDataset(body, userId, projectId, dataset_id)
-    except Exception as e:
-        print(e)
-        print(traceback.format_exc())
+    with thread_safe(dataset_id):
+        userId = apiData["userId"]
+        projectId = apiData["projectId"]
+        appendDataset(body, userId, projectId, dataset_id)
 
 # Upload CSV-Files
 @router.post("/dataset/device/{api_key}")

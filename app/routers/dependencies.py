@@ -80,6 +80,8 @@ class validateApiKey:
         res = deviceApi_dbm.get(api_key)
         if res is None:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")
-        if res['access_type'] != self.access_type:
+        # a write key grants more than a read key, so it also passes 'read' routes
+        # (same rule as the ml service's device routes)
+        if self.access_type == "write" and res['access_type'] != "write":
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=f"Used Api Key does not grant {self.access_type} access")
         return {"projectId": res["projectId"], "userId": res["userId"]}

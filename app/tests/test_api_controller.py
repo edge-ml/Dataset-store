@@ -1,6 +1,7 @@
 import os
 
 import pytest
+from fastapi import HTTPException
 from bson.objectid import ObjectId
 
 from controller.api_controller import appendDataset, initDataset
@@ -57,7 +58,9 @@ class TestAppendDataset:
         labelings = getProjectLabelings(pid)
         assert any(l["name"] == "L" for l in labelings)
 
-    def test_unknown_timeseries_swallowed(self, setup):
+    def test_unknown_timeseries_rejected(self, setup):
         seeder, pid, user, ds_id = setup
         bad = IncrementUploadModal(data=[TimeSeriesDataModel(name="zzz", data=[[1, 2.0]])])
-        appendDataset(bad, user, pid, ds_id)  # exception swallowed by design
+        with pytest.raises(HTTPException) as exc:
+            appendDataset(bad, user, pid, ds_id)
+        assert exc.value.status_code == 400
