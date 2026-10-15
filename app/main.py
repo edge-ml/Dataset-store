@@ -77,6 +77,13 @@ class DatasetStore(FastAPI):
             prefix="/ds/api",
             tags=["API"]
         )
+        # The path the published device libraries (JS, Python, Arduino) use; the
+        # Koa backend that served it was retired in the mono-backend cutover.
+        self.include_router(
+            deviceApi.router,
+            prefix="/api/v1/deviceapi",
+            include_in_schema=False
+        )
 
         self.include_router(
             labelings.router,

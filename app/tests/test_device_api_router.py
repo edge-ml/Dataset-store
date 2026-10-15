@@ -54,6 +54,63 @@ class TestAppend:
         assert r.status_code == 200
 
 
+def init(client, key, series=("a", "b")):
+    r = client.post(f"/ds/api/dataset/init/{key}?api_key={key}",
+                    json={"name": "n", "timeSeries": list(series), "metaData": {}})
+    return r.json()["id"]
+
+
+def append(client, key, ds_id, body, prefix="/ds/api"):
+    return client.post(f"{prefix}/dataset/append/{key}/{ds_id}?api_key={key}", json=body)
+
+
+def labels_of(ds_id):
+    doc = fake_client[DATASTORE_DBNAME][DATASTORE_COLLNAME].find_one({"_id": ObjectId(ds_id)})
+    return [(l["start"], l["end"]) for labeling in doc["labelings"] for l in labeling["labels"]]
+
+
+class TestAppendLabels:
+    def test_ranged_labels(self, client, keys):
+        ds_id = init(client, keys["write"])
+        data = [{"name": "a", "data": [[1000, 1.0], [2000, 2.0], [3000, 3.0]]}]
+        r = append(client, keys["write"], ds_id, {"data": data, "labels": [
+            {"labelingName": "activity", "labelName": "walk", "start": 1000, "end": 1999},
+            {"labelingName": "activity", "labelName": "run", "start": 2000, "end": 3000},
+        ]})
+        assert r.status_code == 200, r.text
+        assert sorted(labels_of(ds_id)) == [(1000, 1999), (2000, 3000)]
+        labelings = list(fake_client["dataset_store_test"]["labelings"].find({}))
+        assert [[l["name"] for l in x["labels"]] for x in labelings] == [["walk", "run"]]
+
+    def test_labels_only_append_and_whole_dataset_label(self, client, keys):
+        ds_id = init(client, keys["write"])
+        append(client, keys["write"], ds_id, {"data": [{"name": "a", "data": [[1000, 1.0], [5000, 2.0]]}]})
+        r = append(client, keys["write"], ds_id, {"labeling": {"labelingName": "activity", "labelName": "sit"}})
+        assert r.status_code == 200, r.text
+        assert labels_of(ds_id) == [(1000, 5000)]
+
+    def test_errors_are_reported(self, client, keys):
+        ds_id = init(client, keys["write"])
+        r = append(client, keys["write"], ds_id, {"data": [{"name": "nope", "data": [[1, 1.0]]}]})
+        assert r.status_code == 400
+        assert "nope" in r.json()["detail"]
+        r = append(client, keys["write"], str(ObjectId()), {"data": []})
+        assert r.status_code == 404
+        r = append(client, keys["write"], ds_id, {"labels": [
+            {"labelingName": "L", "labelName": "x", "start": 5, "end": 1}]})
+        assert r.status_code == 400
+        # overlapping labels of one labeling are rejected by the label controller
+        ok = {"labelingName": "L", "labelName": "x", "start": 1, "end": 10}
+        assert append(client, keys["write"], ds_id, {"labels": [ok]}).status_code == 200
+        assert append(client, keys["write"], ds_id, {"labels": [ok]}).status_code == 400
+
+    def test_legacy_v1_path(self, client, keys):
+        ds_id = init(client, keys["write"])
+        r = append(client, keys["write"], ds_id, {"data": [{"name": "a", "data": [[1, 1.0]]}]},
+                   prefix="/api/v1/deviceapi")
+        assert r.status_code == 200, r.text
+
+
 class TestSyncUpload:
     def test_upload_files(self, client, keys):
         info = json.dumps(device_info())
@@ -80,9 +137,15 @@ class TestGetDatasets:
         assert r.status_code == 200
         assert len(r.json()) == 1
 
-    def test_wrong_access_type_rejected(self, client, keys):
+    def test_write_key_can_read(self, client, keys):
         r = client.get(f"/ds/api/datasets/{keys['write']}?includeTimeseriesData=false&api_key={keys['write']}")
+        assert r.status_code == 200
+
+    def test_read_key_cannot_write(self, client, keys):
+        r = client.post(f"/ds/api/dataset/init/{keys['read']}?api_key={keys['read']}",
+                        json={"name": "n", "timeSeries": ["a"]})
         assert r.status_code == 401
+        assert "write" in r.json()["detail"]
 
 
 class TestAsyncUpload:
