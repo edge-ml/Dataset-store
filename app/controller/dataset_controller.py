@@ -217,6 +217,8 @@ class DatasetController():
         df.columns = df.columns.str.strip()
         parser = CsvParser(df=df)
         timestamps, sensor_data, label_data, sensor_names, labeling_label_list, labelings, units = parser.to_edge_ml_format(config)
+        # Quantity per (renamed) series, as chosen in the upload dialog.
+        quantities = {ts['name']: (ts.get('quantity') or None) for ts in config['timeSeries'] if not ts.get('removed')}
 
         if sensor_data is None or sensor_data.shape[1] == 0:
             raise HTTPException(status.HTTP_400_BAD_REQUEST,
@@ -282,6 +284,7 @@ class DatasetController():
                 'start': int(timestamps[0]),
                 'end': int(timestamps[-1]),
                 'unit': units[sensor_idx],
+                'quantity': quantities.get(sensor),
                 'data': np.column_stack((timestamps, sensor_data.iloc[:, sensor_idx]))
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat

@@ -13,7 +13,13 @@ dbm = DatasetDBManager()
 ctrl = DatasetController()
 
 def initDataset(name, timeSeries, metaData, userId, projectId):
-    newTimeSeries = [{"name": x, "start": 2**63-1, "end": -1} for x in timeSeries]
+    newTimeSeries = []
+    for x in timeSeries:
+        if isinstance(x, str):
+            newTimeSeries.append({"name": x, "start": 2**63-1, "end": -1})
+        else:
+            newTimeSeries.append({"name": x.name, "unit": x.unit, "quantity": x.quantity or None,
+                                  "start": 2**63-1, "end": -1})
     
     newDataset = {"name": name, "start": 2**63-1, "end": -1, "timeSeries": newTimeSeries, "userId": userId, "projectId": projectId, "metaData": metaData}
     newDataset = dbm.addDataset(newDataset)
