@@ -23,6 +23,9 @@ class TimeSeries(BaseModel):
     start: int | None = None
     end: int | None = None
     unit: str = Field(default="")
+    # Physical quantity: a catalog id (see ml /units), a custom label, or None
+    # when unknown (every series uploaded before quantities existed).
+    quantity: Optional[str] = None
     name: str
     samplingRate: SamplingRate | None = None
     length: int | None = None
@@ -123,6 +126,12 @@ class DatasetDBManager:
         update = {"$set": {"timeSeries.$.unit": unit}}
         result = self.ds_collection.update_one(query, update)
         print(result)
+
+    def setTimeSeriesQuantityUnit(self, dataset_id, timeSeries_id, project_id, quantity, unit):
+        """Relabel what a series measures. The stored values are not touched."""
+        query = {"_id": ObjectId(dataset_id), "timeSeries._id": ObjectId(timeSeries_id), "projectId": ObjectId(project_id)}
+        update = {"$set": {"timeSeries.$.quantity": quantity, "timeSeries.$.unit": unit}}
+        return self.ds_collection.update_one(query, update).matched_count == 1
 
     def updateTimeSeriesUnitConfig(self, dataset_id, timeSeries_id, project_id, unit, scaling, offset):
         query = {"_id": ObjectId(dataset_id), "timeSeries._id": ObjectId(timeSeries_id), "projectId": ObjectId(project_id)}

@@ -7,7 +7,8 @@ from utils.helpers import PyObjectId
 import traceback
 import json
 import orjson
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 
 from controller.dataset_controller import DatasetController
 
@@ -80,6 +81,20 @@ def get_time_series_partially(id, ts_id, start, end, max_resolution, project: st
     timeSeries = ctrl.getDatasetTimeSeriesStartEnd(id, ts_id, project, start, end, max_resolution)
     res = orjson.dumps(timeSeries, option = orjson.OPT_SERIALIZE_NUMPY)
     return Response(res, media_type="application/json")
+
+class TimeSeriesUnit(BaseModel):
+    quantity: Optional[str] = None
+    unit: str = ""
+
+
+# Set or correct the quantity and unit of one time-series
+@router.put("/{id}/ts/{ts_id}/unit")
+async def set_time_series_unit(id, ts_id, body: TimeSeriesUnit, project: str = Header(...), user_data=Depends(validate_user)):
+    quantity = (body.quantity or "").strip() or None
+    unit = body.unit.strip()
+    if not ctrl.dbm.setTimeSeriesQuantityUnit(id, ts_id, project, quantity, unit):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Time-series not found")
+    return {"quantity": quantity, "unit": unit}
 
 # Update dataset
 @router.put("/{id}")
