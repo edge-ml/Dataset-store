@@ -9,6 +9,7 @@ class TimeSeries(BaseModel):
     start: int
     end: int
     unit: str = Field(default="")
+    quantity: Optional[str] = None
     name: str
     data: List | None = None
 

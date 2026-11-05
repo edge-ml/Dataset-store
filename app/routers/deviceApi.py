@@ -25,9 +25,16 @@ class InitDatasetModalLabeling(BaseModel):
     labelingName: str
     labelName: str
 
+class InitTimeSeriesModal(BaseModel):
+    name: str
+    unit: str = ""
+    # Catalog quantity id or custom label; None when unknown.
+    quantity: Optional[str] = None
+
 class InitDatasetModal(BaseModel):
     name: str
-    timeSeries: List[str]
+    # Plain names (unit unknown) or objects with unit/quantity.
+    timeSeries: List[InitTimeSeriesModal | str]
     metaData: Dict[str,str] = {}
 
 
