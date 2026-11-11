@@ -31,6 +31,25 @@ class TimeSeries(BaseModel):
     length: int | None = None
 
 
+class MediaSeries(BaseModel):
+    """An audio or video recording placed on the dataset timeline.
+
+    Kept apart from timeSeries on purpose: everything that reads timeSeries
+    (training, CSV export, the device libraries) expects numeric samples.
+    """
+    id: PyObjectId = Field(default_factory=ObjectId, alias="_id")
+    kind: str  # "audio" | "video"
+    name: str
+    start: int  # unix ms at which the recording begins
+    end: int  # start + durationMs
+    durationMs: int
+    mimeType: str
+    size: int  # bytes
+    status: str = "ready"  # "processing" while the waveform is computed
+    hasPeaks: bool = False
+    meta: Dict[str, Union[str, int, float, None]] = Field(default={})
+
+
 class DatasetLabel(BaseModel):
     start: int
     end: int
@@ -57,6 +76,7 @@ class DatasetSchema(BaseModel):
     metaData: Dict[str, str] = Field(default={})
     timeSeries: List[TimeSeries] = Field(default=[])
     labelings: List[DatasetLabeling] = Field(default=[])
+    mediaSeries: List[MediaSeries] = Field(default=[])
     userId: PyObjectId
 
 class DatasetDBManager:
@@ -111,8 +131,37 @@ class DatasetDBManager:
 
     def updateDataset(self, id, project_id, dataset):
         dataset = DatasetSchema.parse_obj(dataset).dict(by_alias=True)
-        self.ds_collection.replace_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, dataset)
+        # Recordings are only changed through the media methods below. Callers
+        # here send whole datasets that may predate an upload (or come from a
+        # client that does not know about recordings) and must not drop them.
+        fields = {k: v for k, v in dataset.items() if k not in ("_id", "mediaSeries")}
+        self.ds_collection.update_one({"_id": ObjectId(id), "projectId": ObjectId(project_id)}, {"$set": fields})
         return dataset
+
+    # Audio and video recordings
+
+    def addMedia(self, dataset_id, project_id, media):
+        media = MediaSeries.parse_obj(media).dict(by_alias=True)
+        query = {"_id": ObjectId(dataset_id), "projectId": ObjectId(project_id)}
+        if self.ds_collection.update_one(query, {"$push": {"mediaSeries": media}}).matched_count != 1:
+            return None
+        return media
+
+    def getMedia(self, dataset_id, project_id, media_id):
+        dataset = self.getDatasetById(dataset_id, project_id)
+        if dataset is None:
+            return None
+        return next((m for m in dataset.get("mediaSeries", []) if str(m["_id"]) == str(media_id)), None)
+
+    def updateMedia(self, dataset_id, project_id, media_id, updates: dict):
+        query = {"_id": ObjectId(dataset_id), "projectId": ObjectId(project_id), "mediaSeries._id": ObjectId(media_id)}
+        update = {"$set": {f"mediaSeries.$.{k}": v for k, v in updates.items()}}
+        return self.ds_collection.update_one(query, update).matched_count == 1
+
+    def deleteMedia(self, dataset_id, project_id, media_id):
+        query = {"_id": ObjectId(dataset_id), "projectId": ObjectId(project_id), "mediaSeries._id": ObjectId(media_id)}
+        update = {"$pull": {"mediaSeries": {"_id": ObjectId(media_id)}}}
+        return self.ds_collection.update_one(query, update).matched_count == 1
     
     def partialUpdate(self, id, project_id, updates: dict):
         self.ds_collection.update_one(

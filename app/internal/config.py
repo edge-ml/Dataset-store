@@ -21,6 +21,10 @@ default_values = {
     # Message broker (previously provided by the backend service)
     "RABBITMQ_URI": "amqp://guest:guest@localhost:5672",
     "RABBITMQ_QUEUE": "edgeml",
+    # Audio and video recordings in datasets
+    "MEDIA_MAX_SIZE_MB": 2048,  # largest accepted upload
+    "MEDIA_URL_TTL": "12h",  # how long a playback link stays valid
+    "MEDIA_S3_TIMEOUT_SECONDS": 120,  # media files are far larger than series
 }
 
 required_values = [
@@ -72,3 +76,6 @@ def parse_ttl(value) -> int:
 
 SERVER_TTL_SECONDS = parse_ttl(SERVER_TTL)
 SERVER_REFRESH_TTL_SECONDS = parse_ttl(SERVER_REFRESH_TTL)
+MEDIA_URL_TTL_SECONDS = parse_ttl(MEDIA_URL_TTL)
+MEDIA_MAX_SIZE_BYTES = int(float(MEDIA_MAX_SIZE_MB) * 1024 * 1024)
+MEDIA_S3_TIMEOUT_SECONDS = int(float(MEDIA_S3_TIMEOUT_SECONDS))
