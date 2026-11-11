@@ -461,6 +461,9 @@ class DatasetController():
                 final_df = pd.merge(final_df, df, how="outer", on='time')
             final_df.columns = [*final_df.columns[:-1], "sensor_" + ts["name"]]
 
+        if final_df is None:
+            # nothing but recordings (audio/video): the CSV holds only labels
+            final_df = pd.DataFrame({"time": pd.Series(dtype="uint64")})
         final_df.set_index("time", inplace=True)
         
         # Add labelings

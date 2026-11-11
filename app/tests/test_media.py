@@ -321,3 +321,14 @@ class TestDeviceApi:
             assert client.post(f"/ds/api/dataset/media/{read}/{ds['_id']}", files={"file": f}).status_code == 401
         with open(files["wav"], "rb") as f:
             assert client.post(f"/ds/api/dataset/media/nokey/{ds['_id']}", files={"file": f}).status_code == 401
+
+
+class TestCsvExport:
+    def test_dataset_with_only_recordings(self, client, seeder, files):
+        """The CSV download has no sensor columns then, but must not fail."""
+        from controller.dataset_controller import DatasetController
+        seeder.project()
+        ds = seeder.dataset(time_series=[])
+        _upload(client, seeder, ds, files["wav"])
+        stream, name = DatasetController().getCSV(str(seeder.project_id), str(ds["_id"]))
+        assert name == "ds" and stream.getvalue().strip() == "time"
