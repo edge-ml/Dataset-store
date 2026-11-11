@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from routers import dataset, deviceApi, label, labelings, csv
 from routers import auth
 from routers import projects, devices, apikeys, arduino_firmware
+from routers import media
 import logging
 import time
 
@@ -58,6 +59,17 @@ class DatasetStore(FastAPI):
             dataset.router,
             prefix='/ds/datasets',
             tags=["Datasets"]
+        )
+
+        self.include_router(
+            media.router,
+            prefix='/ds/datasets',
+            tags=["Media"]
+        )
+        self.include_router(
+            media.file_router,
+            prefix='/ds/media',
+            tags=["Media"]
         )
 
         self.include_router(

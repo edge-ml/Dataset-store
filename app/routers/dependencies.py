@@ -24,6 +24,9 @@ async def validate_user(jwt: Annotated[Union[str, None], Cookie()], project_id=D
         decoded = decode(token, SECRET_KEY, algorithms=["HS256"])
         if "exp" not in decoded:
             raise ExpiredSignatureError
+        if "id" not in decoded:
+            # signed by us but not a login, e.g. a playback link for a recording
+            raise InvalidTokenError("not a login token")
         user_id = ObjectId(decoded["id"])
         sub_level = decoded.get("subscriptionLevel")
         project = project_dbm.get_project(project_id)
@@ -53,6 +56,9 @@ def _decode_user_id(authorization, jwt) -> str:
         decoded = decode(token, SECRET_KEY, algorithms=["HS256"])
         if "exp" not in decoded:
             raise ExpiredSignatureError
+        if "id" not in decoded:
+            # signed by us but not a login, e.g. a playback link for a recording
+            raise InvalidTokenError("not a login token")
         return ObjectId(decoded["id"])
     except InvalidSignatureError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Authentication failed")

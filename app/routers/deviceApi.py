@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, UploadFile, File, Form, Response, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, Response, BackgroundTasks, Request
 from starlette.background import BackgroundTask
 from fastapi.param_functions import Depends
 from fastapi.responses import FileResponse
@@ -14,6 +14,8 @@ from typing import Tuple
 import traceback
 from utils.InMemoryLockManager import thread_safe
 from controller.csv_uploadController import registerDownload, get_status
+
+from routers.media import receive_media, ctrl as mediaCtrl
 
 import json
 
@@ -70,6 +72,17 @@ async def append_dataset(dataset_id, body: IncrementUploadModal, apiData=Depends
         userId = apiData["userId"]
         projectId = apiData["projectId"]
         appendDataset(body, userId, projectId, dataset_id)
+
+# Add an audio or video recording to a dataset (multipart: file, and optionally kind, name, start)
+@router.post("/dataset/media/{api_key}/{dataset_id}")
+async def upload_media(dataset_id, request: Request, background_tasks: BackgroundTasks, apiData=Depends(validateApiKey('write'))):
+    return await receive_media(request, dataset_id, apiData["projectId"], background_tasks)
+
+# Download a recording; supports Range requests
+@router.get("/dataset/media/{api_key}/{dataset_id}/{media_id}")
+def download_media(dataset_id, media_id, request: Request, apiData=Depends(validateApiKey('read'))):
+    media = mediaCtrl.get(dataset_id, apiData["projectId"], media_id)
+    return mediaCtrl.stream(media, request.headers.get("range"), download=True)
 
 # Upload CSV-Files
 @router.post("/dataset/device/{api_key}")

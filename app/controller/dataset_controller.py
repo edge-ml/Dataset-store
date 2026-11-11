@@ -1,6 +1,7 @@
 from io import StringIO
 from db.dataset import DatasetDBManager
 from .binary_store import BinaryStore
+from .media_store import mediaStore
 from typing import Union
 from bson.objectid import ObjectId
 import time
@@ -153,11 +154,21 @@ class DatasetController():
 
 
 
+    def _deleteMediaFiles(self, dataset):
+        for media in (dataset or {}).get("mediaSeries", []):
+            for key in (str(media["_id"]), f'{media["_id"]}.peaks'):
+                try:
+                    mediaStore.delete(key)
+                except Exception as e:
+                    print("Could not delete media file", key, e)
+
     def deleteDataset(self, id, projectId):
+        dataset = self.dbm.getDatasetById(id, projectId)
         ts_ids = self.dbm.deleteDatasetById(projectId, id)
         for id in ts_ids:
             binStore = BinaryStore(id)
             binStore.delete()
+        self._deleteMediaFiles(dataset)
 
     def updateDataset(self, id, projectId, dataset):
         return self.dbm.updateDataset(id, projectId, dataset)
@@ -325,6 +336,7 @@ class DatasetController():
             for d in timeSeriesIDs:
                 binStore = BinaryStore(d)
                 binStore.delete()
+            self._deleteMediaFiles(dataset)
         self.dbm.deleteProject(project)
 
 
