@@ -71,24 +71,6 @@ def registerForDownloadProject(projectId: PyObjectId, userId: PyObjectId, backgr
     return data.dict()
 
 
-def downloadProject(downloadId, project):
-    fileNameCtr = {}
-    datasets = dataset_db.getDatasetsInProjet(project)
-    datasets = [d["_id"] for d in datasets]
-    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-        with zipfile.ZipFile(temp_file, "a", zipfile.ZIP_DEFLATED, False) as file:
-            for id in datasets:
-                fileCSV, fileName = ctrl.getCSV(project, id)
-                if fileName in fileNameCtr:
-                    oldName = fileName
-                    fileName = fileName + "_" + str(fileNameCtr[fileName])
-                    fileNameCtr[oldName] = fileNameCtr[oldName] + 1
-                else:
-                    fileNameCtr[fileName] = 1
-                file.writestr(fileName + ".csv", fileCSV.getvalue())   
-        # Store the temporary file in downloadData
-        db.update(download_id=downloadId, status=100, filePath=temp_file.name)
-
 # file extension of a recording, by its mime type
 MEDIA_EXTENSIONS = {
     "video/mp4": ".mp4", "video/webm": ".webm", "audio/mpeg": ".mp3", "audio/wav": ".wav",
@@ -107,50 +89,116 @@ def _unique(name, taken):
     return candidate
 
 
-def _writeDatasetArchive(target, project, dataset, fileCSV, fileName):
-    """Everything a dataset with recordings holds: the sensor data, the
-    labels as time ranges, and the recordings as they were uploaded."""
-    taken = set()
-    with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
-        if dataset.get("timeSeries"):
-            archive.writestr(_unique(fileName + ".csv", taken), fileCSV.getvalue())
-        labels = ctrl.getLabelsCSV(project, dataset["_id"])
-        archive.writestr(_unique(fileName + "_labels.csv", taken), labels.getvalue())
-        for media in dataset.get("mediaSeries", []):
-            key = str(media["_id"])
-            size = mediaStore.size(key)
-            if size is None:
-                raise FileNotFoundError(f"The file of the recording {media['name']} is missing")
-            name = media["name"].replace("/", "_").replace("\\", "_") or media["kind"]
-            name = _unique(name + MEDIA_EXTENSIONS.get(media.get("mimeType"), ""), taken)
-            # audio and video are compressed already
-            info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
-            info.compress_type = zipfile.ZIP_STORED
-            with archive.open(info, "w", force_zip64=True) as entry:
-                for chunk in mediaStore.read(key, 0, size - 1):
-                    entry.write(chunk)
+class _Progress:
+    """Reports how far a download is, as a percentage below 100 (100 means
+    the file is ready). `total` is the amount of work in any unit."""
+
+    def __init__(self, downloadId, total):
+        self.downloadId = downloadId
+        self.total = max(total, 1)
+        self.done = 0
+        self.reported = 0
+
+    def add(self, amount):
+        self.done += amount
+        percent = min(99, int(self.done * 100 / self.total))
+        if percent > self.reported:
+            self.reported = percent
+            db.update(self.downloadId, status=percent)
+
+
+# What a dataset costs to export, for the progress: a recording counts by its
+# size, the sensor data and labels as a fixed amount (their size is not known
+# before they are written).
+CSV_WEIGHT = 1024 * 1024
+
+
+def _weight(dataset):
+    return CSV_WEIGHT + sum(m.get("size", 0) for m in dataset.get("mediaSeries", []))
+
+
+def _writeRecordings(archive, project, dataset, labelsName, folder, taken, progress):
+    """The labels of a dataset as time ranges and its recordings as uploaded,
+    for a dataset that holds recordings."""
+    labels = ctrl.getLabelsCSV(project, dataset["_id"])
+    archive.writestr(_unique(labelsName, taken), labels.getvalue())
+    for media in dataset.get("mediaSeries", []):
+        key = str(media["_id"])
+        size = mediaStore.size(key)
+        if size is None:
+            raise FileNotFoundError(f"The file of the recording {media['name']} is missing")
+        name = media["name"].replace("/", "_").replace("\\", "_") or media["kind"]
+        name = _unique(folder + name + MEDIA_EXTENSIONS.get(media.get("mimeType"), ""), taken)
+        # audio and video are compressed already
+        info = zipfile.ZipInfo(name, date_time=time.localtime()[:6])
+        info.compress_type = zipfile.ZIP_STORED
+        with archive.open(info, "w", force_zip64=True) as entry:
+            for chunk in mediaStore.read(key, 0, size - 1):
+                entry.write(chunk)
+                progress.add(len(chunk))
+
+
+def _fail(downloadId, path, error):
+    # tell the waiting user instead of leaving the download unfinished forever
+    print(traceback.format_exc())
+    if path and os.path.exists(path):
+        os.remove(path)
+    db.update(downloadId, error=str(error) or "The download could not be prepared")
+
+
+def downloadProject(downloadId, project):
+    """All datasets of a project in one archive: a CSV per dataset, and for a
+    dataset with recordings also its labels as time ranges and, in a folder
+    of its name, the recordings."""
+    path = None
+    try:
+        datasets = list(dataset_db.getDatasetsInProjet(project))
+        progress = _Progress(downloadId, sum(_weight(d) for d in datasets))
+        taken = set()
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            path = temp_file.name
+            with zipfile.ZipFile(temp_file, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+                for dataset in datasets:
+                    fileCSV, fileName = ctrl.getCSV(project, dataset["_id"])
+                    hasMedia = bool(dataset.get("mediaSeries"))
+                    # one name for everything of this dataset, also when
+                    # another dataset is called the same
+                    name = os.path.splitext(_unique(fileName + ".csv", taken))[0]
+                    # without sensor data the CSV of a dataset with recordings is empty
+                    if dataset.get("timeSeries") or not hasMedia:
+                        archive.writestr(name + ".csv", fileCSV.getvalue())
+                    progress.add(CSV_WEIGHT)
+                    if hasMedia:
+                        _writeRecordings(archive, project, dataset, name + "_labels.csv", name + "/", taken, progress)
+        db.update(download_id=downloadId, status=100, filePath=path)
+    except Exception as e:
+        _fail(downloadId, path, e)
 
 
 def downloadDataset(downloadId, project, dataset_id):
+    """A dataset without recordings as one CSV; with recordings as an archive
+    of the sensor data, the labels as time ranges and the recordings."""
     path = None
     try:
         dataset = dataset_db.getDatasetById(dataset_id, project)
+        progress = _Progress(downloadId, _weight(dataset))
         fileCSV, fileName = ctrl.getCSV(project, dataset_id)
+        progress.add(CSV_WEIGHT)
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             path = temp_file.name
             if dataset.get("mediaSeries"):
-                _writeDatasetArchive(temp_file, project, dataset, fileCSV, fileName)
+                taken = set()
+                with zipfile.ZipFile(temp_file, "w", zipfile.ZIP_DEFLATED, allowZip64=True) as archive:
+                    if dataset.get("timeSeries"):
+                        archive.writestr(_unique(fileName + ".csv", taken), fileCSV.getvalue())
+                    _writeRecordings(archive, project, dataset, fileName + "_labels.csv", "", taken, progress)
                 fileType = "zip"
             else:
                 temp_file.write(fileCSV.getvalue().encode())
                 fileType = "csv"
         db.update(downloadId, status=100, fileName=fileName, filePath=path, fileType=fileType)
     except Exception as e:
-        # tell the waiting user instead of leaving the download at 0 % forever
-        print(traceback.format_exc())
-        if path and os.path.exists(path):
-            os.remove(path)
-        db.update(downloadId, error=str(e) or "The download could not be prepared")
+        _fail(downloadId, path, e)
 
 
 async def get_status(user_id):
@@ -160,31 +208,32 @@ async def get_status(user_id):
     except KeyError:
         raise HTTPException(status_code=404, detail="Download-id not valid")
 
+def _file(path, media_type, name):
+    """The prepared file, sent in pieces."""
+    def chunks():
+        with open(path, "rb") as file:
+            while chunk := file.read(1024 * 1024):
+                yield chunk
+    headers = {"Content-Disposition": f"attachment; filename={name}"}
+    if media_type == "application/zip":
+        # An archive is compressed already: send it as it is and with its
+        # size, so that the browser can show how far the transfer is. (The
+        # gzip middleware would drop the size; it still shrinks a CSV a lot.)
+        headers["Content-Length"] = str(os.path.getsize(path))
+        headers["Content-Encoding"] = "identity"
+    return StreamingResponse(chunks(), media_type=media_type, headers=headers)
+
+
 async def get_download_data(id):
     res = db.get(id)
     if res.status < 100:
         raise HTTPException(status_code=409, detail="File not ready yet")
 
     if isinstance(res, DBEntryProject):
-        with open(res.filePath, "rb") as file:
-            response = StreamingResponse(iter([file.read()]), media_type="application/zip")
-            response.headers["Content-Disposition"] = f"attachment; filename={res.projectName}.zip"
-            return response
-    else:
-        # Open the file as a binary file for reading
-        if res.fileType == "zip":
-            # may hold large recordings: send it in pieces
-            def chunks():
-                with open(res.filePath, "rb") as file:
-                    while chunk := file.read(1024 * 1024):
-                        yield chunk
-            response = StreamingResponse(chunks(), media_type="application/zip")
-            response.headers["Content-Disposition"] = f"attachment; filename={res.fileName}.zip"
-            return response
-        with open(res.filePath, "rb") as file:
-            response = StreamingResponse(iter([file.read()]), media_type="text/csv")
-            response.headers["Content-Disposition"] = f"attachment; filename={res.fileName}.csv"
-            return response
+        return _file(res.filePath, "application/zip", f"{res.projectName}.zip")
+    if res.fileType == "zip":
+        return _file(res.filePath, "application/zip", f"{res.fileName}.zip")
+    return _file(res.filePath, "text/csv", f"{res.fileName}.csv")
 
 async def cancel_download(downloadId):
     res = db.get(downloadId)

@@ -392,5 +392,41 @@ class TestDownload:
         ds = self._labelled(client, seeder, files, time_series=[])
         mediaStore.delete(str(_media(seeder, ds)[0]["_id"]))
         entry = self._download(seeder, ds)
-        assert entry["status"] == 0 and "missing" in entry["error"]
+        assert entry["status"] < 100 and "missing" in entry["error"]
         assert not entry["filePath"]
+
+    def test_progress_is_reported(self, client, seeder, files, monkeypatch):
+        from controller import downloadController
+        ds = self._labelled(client, seeder, files, time_series=[])
+        seen = []
+        update = downloadController.db.update
+        monkeypatch.setattr(downloadController.db, "update",
+                            lambda *a, **k: (seen.append(k.get("status")), update(*a, **k))[1])
+        # the recording counts for nearly all of the work
+        monkeypatch.setattr(downloadController, "CSV_WEIGHT", 1)
+        entry = self._download(seeder, ds)
+        steps = [s for s in seen if s is not None]
+        assert steps == sorted(steps) and steps[-1] == 100 and any(0 < s < 100 for s in steps)
+        os.remove(entry["filePath"])
+
+    def test_project_download_holds_recordings(self, client, seeder, files):
+        import asyncio
+        import zipfile
+        from controller.downloadController import downloadProject, get_download_data
+        from db.csv import csvDB, DBEntryProject
+        ds = self._labelled(client, seeder, files, time_series=[])
+        seeder.dataset(name="plain")
+        from controller.binary_store import BinaryStore
+        plain = seeder.datasets.find_one({"name": "plain"})
+        BinaryStore(str(plain["timeSeries"][0]["_id"]))._appendValues([1000, 2000], [1.0, 2.0])
+        csvDB().add(DBEntryProject(downloadId="pr", projectId=seeder.project_id, userId=ObjectId(), projectName="p"))
+        downloadProject("pr", str(seeder.project_id))
+        entry = seeder.downloads.find_one({"downloadId": "pr"})
+        assert entry["status"] == 100 and not entry["error"]
+        with zipfile.ZipFile(entry["filePath"]) as z:
+            # no CSV for the dataset that only holds recordings
+            assert sorted(z.namelist()) == ["ds/cam.webm", "ds_labels.csv", "plain.csv"]
+            assert b"Walking" in z.read("ds_labels.csv")
+        response = asyncio.run(get_download_data("pr"))
+        assert response.headers["Content-Length"] == str(os.path.getsize(entry["filePath"]))
+        os.remove(entry["filePath"])
