@@ -59,8 +59,15 @@ def appendDataset(uploadData, userId, projectId, dataset_id):
 
     labels = [(l.labelingName, l.labelName, l.start, l.end) for l in uploadData.labels]
     if uploadData.labeling:
-        tmpStart = min(x["start"] for x in dataset["timeSeries"])
-        tmpEnd = max(x["end"] for x in dataset["timeSeries"])
+        # the whole dataset: its sensor data and its recordings. A series
+        # without samples yet has start > end and spans nothing.
+        spans = [(x["start"], x["end"]) for x in dataset["timeSeries"] + dataset.get("mediaSeries", [])
+                 if x["start"] <= x["end"]]
+        if not spans:
+            raise HTTPException(status_code=400, detail="The dataset holds no data or recordings yet, "
+                                                        "so there is nothing a label for the whole dataset could span")
+        tmpStart = min(start for start, _ in spans)
+        tmpEnd = max(end for _, end in spans)
         labels.append((uploadData.labeling.labelingName, uploadData.labeling.labelName, tmpStart, tmpEnd))
     for labelingName, labelName, start, end in labels:
         # createLabeling merges into an existing labeling of the same name

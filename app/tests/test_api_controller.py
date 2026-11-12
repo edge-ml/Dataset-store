@@ -64,3 +64,41 @@ class TestAppendDataset:
         with pytest.raises(HTTPException) as exc:
             appendDataset(bad, user, pid, ds_id)
         assert exc.value.status_code == 400
+
+
+CAM = {"_id": ObjectId(), "name": "cam", "kind": "video", "start": 500, "end": 9000, "durationMs": 8500,
+       "mimeType": "video/mp4", "size": 1, "status": "ready", "meta": {}}
+
+
+class TestWholeDatasetLabel:
+    def _label(self, seeder):
+        return seeder.datasets.find_one({})["labelings"][0]["labels"][0]
+
+    def test_spans_recordings_too(self, setup):
+        seeder, pid, user, ds_id = setup
+        seeder.datasets.update_one({}, {"$set": {"mediaSeries": [
+            CAM]}})
+        body = IncrementUploadModal(
+            data=[TimeSeriesDataModel(name="a", data=[[1000, 1.0], [2000, 2.0]])],
+            labeling=InitDatasetModalLabeling(labelingName="L", labelName="run"))
+        appendDataset(body, user, pid, ds_id)
+        label = self._label(seeder)
+        assert (label["start"], label["end"]) == (500, 9000)
+
+    def test_dataset_with_recordings_only(self, seeder):
+        pid, user = str(seeder.project()), str(ObjectId())
+        ds_id = initDataset("clips", [], {}, user, pid)
+        seeder.datasets.update_one({}, {"$set": {"mediaSeries": [
+            CAM]}})
+        body = IncrementUploadModal(data=[], labeling=InitDatasetModalLabeling(labelingName="L", labelName="run"))
+        appendDataset(body, user, pid, ds_id)  # used to fail: no time-series to take the span from
+        label = self._label(seeder)
+        assert (label["start"], label["end"]) == (500, 9000)
+
+    def test_nothing_to_span_is_refused(self, setup):
+        seeder, pid, user, ds_id = setup
+        body = IncrementUploadModal(data=[], labeling=InitDatasetModalLabeling(labelingName="L", labelName="run"))
+        with pytest.raises(HTTPException) as exc:
+            appendDataset(body, user, pid, ds_id)
+        assert exc.value.status_code == 400
+        assert not seeder.datasets.find_one({}).get("labelings")
