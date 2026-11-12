@@ -485,3 +485,26 @@ class DatasetController():
         textStream = StringIO()
         final_df.to_csv(textStream, index=True)
         return textStream, fileName
+
+    def getLabelsCSV(self, projectId, dataset_id):
+        """The labels of a dataset as time ranges: labeling,label,start,end.
+
+        The data CSV marks labels on the rows of the sensor samples, which
+        says nothing about a stretch of a recording without samples in it.
+        Times are unix ms, as on the dataset timeline.
+        """
+        dataset = self.dbm.getDatasetById(dataset_id, projectId)
+        rows = []
+        for labeling in dataset["labelings"]:
+            definition = self.dbm_labeling.get_single(projectId, labeling["labelingId"])
+            if definition is None:
+                continue
+            names = {label["_id"]: label["name"] for label in definition["labels"]}
+            for label in labeling["labels"]:
+                if label["type"] in names:
+                    rows.append({"labeling": definition["name"], "label": names[label["type"]],
+                                 "start": int(label["start"]), "end": int(label["end"])})
+        df = pd.DataFrame(rows, columns=["labeling", "label", "start", "end"]).sort_values(["start", "end"])
+        textStream = StringIO()
+        df.to_csv(textStream, index=False)
+        return textStream

@@ -332,3 +332,65 @@ class TestCsvExport:
         _upload(client, seeder, ds, files["wav"])
         stream, name = DatasetController().getCSV(str(seeder.project_id), str(ds["_id"]))
         assert name == "ds" and stream.getvalue().strip() == "time"
+
+
+class TestDownload:
+    """A dataset with recordings downloads as an archive of all it holds."""
+
+    def _labelled(self, client, seeder, files, time_series=None):
+        seeder.project()
+        labeling_id, walking = ObjectId(), ObjectId()
+        seeder.labelings.insert_one({"_id": labeling_id, "projectId": seeder.project_id, "name": "activity",
+                                     "labels": [{"_id": walking, "name": "Walking", "color": "#f00"}]})
+        ds = seeder.dataset(time_series=time_series, labelings=[{
+            "labelingId": labeling_id,
+            "labels": [{"_id": ObjectId(), "type": walking, "start": 1100, "end": 1900}],
+        }])
+        _upload(client, seeder, ds, files["silent"], name="cam", start=1000)
+        return ds
+
+    def _download(self, seeder, ds):
+        from controller.downloadController import downloadDataset
+        from db.csv import csvDB, DBEntryDataset
+        csvDB().add(DBEntryDataset(downloadId="dl", projectId=seeder.project_id, userId=ObjectId(),
+                                   projectName="p", datasetName="ds"))
+        downloadDataset("dl", str(seeder.project_id), ds["_id"])
+        return seeder.downloads.find_one({"downloadId": "dl"})
+
+    def test_recordings_only(self, client, seeder, files):
+        import zipfile
+        ds = self._labelled(client, seeder, files, time_series=[])
+        entry = self._download(seeder, ds)
+        assert entry["status"] == 100 and entry["fileType"] == "zip" and not entry["error"]
+        with zipfile.ZipFile(entry["filePath"]) as z:
+            # no data CSV: there are no samples to put in it
+            assert sorted(z.namelist()) == ["cam.webm", "ds_labels.csv"]
+            assert z.read("ds_labels.csv").decode().splitlines() == [
+                "labeling,label,start,end", "activity,Walking,1100,1900"]
+            with open(files["silent"], "rb") as f:
+                assert z.read("cam.webm") == f.read()
+        os.remove(entry["filePath"])
+
+    def test_with_sensor_data_served_as_zip(self, client, seeder, files):
+        import asyncio
+        import zipfile
+        from controller.binary_store import BinaryStore
+        from controller.downloadController import get_download_data
+        series = [{"name": "a", "start": 1000, "end": 2000}]
+        ds = self._labelled(client, seeder, files, time_series=series)
+        BinaryStore(str(ds["timeSeries"][0]["_id"]))._appendValues([1000, 1500, 2000], [1.0, 2.0, 3.0])
+        entry = self._download(seeder, ds)
+        with zipfile.ZipFile(entry["filePath"]) as z:
+            assert sorted(z.namelist()) == ["cam.webm", "ds.csv", "ds_labels.csv"]
+            assert b"sensor_a" in z.read("ds.csv")
+        response = asyncio.run(get_download_data("dl"))
+        assert response.media_type == "application/zip"
+        assert response.headers["Content-Disposition"].endswith("ds.zip")
+        os.remove(entry["filePath"])
+
+    def test_failure_is_reported(self, client, seeder, files):
+        ds = self._labelled(client, seeder, files, time_series=[])
+        mediaStore.delete(str(_media(seeder, ds)[0]["_id"]))
+        entry = self._download(seeder, ds)
+        assert entry["status"] == 0 and "missing" in entry["error"]
+        assert not entry["filePath"]

@@ -15,6 +15,8 @@ class DBEntryDataset(BaseModel):
     status: int = 0
     error: str = ""
     fileName: str = ""
+    # "csv", or "zip" for a dataset with recordings
+    fileType: str = "csv"
     filePath : str = ""
     projectName: str
     datasetName: str
@@ -60,7 +62,7 @@ class csvDB:
         data = [DBEntry.parse_obj(x).root for x in data]
         return data
     
-    def update(self, download_id=None, status=None, error=None, fileName=None, filePath=None):
+    def update(self, download_id=None, status=None, error=None, fileName=None, filePath=None, fileType=None):
         update_fields = {}
         if status is not None:
             update_fields["status"] = status
@@ -70,6 +72,8 @@ class csvDB:
             update_fields["fileName"] = fileName
         if filePath is not None:
             update_fields["filePath"] = filePath
+        if fileType is not None:
+            update_fields["fileType"] = fileType
 
 
         if update_fields:
