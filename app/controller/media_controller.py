@@ -9,8 +9,10 @@ import math
 import os
 import subprocess
 import tempfile
+import re
 import time
 import logging
+from datetime import datetime, timedelta, timezone
 
 import jwt
 import numpy as np
@@ -59,6 +61,21 @@ PEAKS_PER_SECOND = 50
 PEAKS_MAX_BUCKETS = 500_000
 
 TOKEN_TYPE = "media"
+
+# How far the time stored in a file may lie outside a dataset's data and
+# still be used to place the recording (see MediaController.place).
+PLACE_TOLERANCE_MS = 60 * 60 * 1000
+
+
+def _parse_ms(value):
+    """A unix ms timestamp sent by a client, or None if it is not plausible."""
+    try:
+        moment = int(float(value))
+    except (TypeError, ValueError):
+        return None
+    if moment < EARLIEST_RECORDING.timestamp() * 1000 or moment > (time.time() + 86400) * 1000:
+        return None
+    return moment
 
 
 def _bad_request(detail):
@@ -111,11 +128,71 @@ def _duration_from_packets(path):
     return last
 
 
-def probe(path, kind=None):
+# Tags in which recorders store when a recording was made, most precise first.
+# Apple's carries the local offset; ffmpeg reports creation_time in UTC.
+RECORDED_AT_TAGS = ("com.apple.quicktime.creationdate", "creation_time", "date")
+# A time stored in a file is believed only within these bounds; cameras with
+# an unset clock write 1970 or 1904, others a date in the future.
+EARLIEST_RECORDING = datetime(2000, 1, 1, tzinfo=timezone.utc)
+
+
+def _parse_time(value, local_offset_min=0):
+    """unix ms of a timestamp tag ("2026-11-12T10:11:12.000000Z",
+    "2026-11-12T10:11:12+0100", "2026-11-12 10:11:12"); None for anything
+    without a time of day or outside a plausible range.
+
+    A time without a zone is local time of the recorder, which is unknown;
+    `local_offset_min` (minutes east of UTC, e.g. 60 for CET) is the best
+    guess, the zone of whoever uploads it.
+    """
+    if not isinstance(value, str):
+        return None
+    text = value.strip().replace(" ", "T", 1)
+    if "T" not in text:
+        return None  # a date alone, e.g. the year an MP3 was released
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    # +0100 -> +01:00, which fromisoformat (Python 3.10) needs
+    text = re.sub(r"([+-]\d{2})(\d{2})$", r"\1:\2", text)
+    # at most 6 decimals, which fromisoformat (Python 3.10) needs
+    text = re.sub(r"(\.\d{6})\d+", r"\1", text)
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone(timedelta(minutes=local_offset_min)))
+    if moment < EARLIEST_RECORDING or moment.timestamp() > time.time() + 86400:
+        return None
+    return int(round(moment.timestamp() * 1000))
+
+
+def recorded_at(info, local_offset_min=0):
+    """When the recording began according to the file, unix ms, or None."""
+    sources = [(info.get("format") or {}).get("tags") or {}]
+    sources += [s.get("tags") or {} for s in info.get("streams") or []]
+    sources = [{k.lower(): v for k, v in tags.items()} for tags in sources]
+    for key in RECORDED_AT_TAGS:
+        for tags in sources:
+            moment = _parse_time(tags.get(key), local_offset_min)
+            if moment is not None:
+                return moment
+    # Broadcast WAV: the date and the time of day are separate tags
+    for tags in sources:
+        date, clock = tags.get("date"), tags.get("creation_time")
+        if isinstance(date, str) and isinstance(clock, str) and re.fullmatch(r"\d{2}:\d{2}:\d{2}", clock.strip()):
+            moment = _parse_time(f"{date.strip()}T{clock.strip()}", local_offset_min)
+            if moment is not None:
+                return moment
+    return None
+
+
+def probe(path, kind=None, local_offset_min=0):
     """Read what a file contains and check that a browser can play it.
 
     Returns {kind, durationMs, mimeType, hasAudio, meta}; raises a 400 with a
-    readable reason otherwise.
+    readable reason otherwise. `meta.recordedAt` is when the recording began
+    according to the file (unix ms), if it says.
     """
     res = _run(["ffprobe", "-v", "error", "-print_format", "json", "-show_format", "-show_streams", path], timeout=120)
     try:
@@ -161,7 +238,8 @@ def probe(path, kind=None):
     if seconds <= 0:
         raise _bad_request("The length of the recording could not be read")
 
-    meta = {"container": container, "videoCodec": video_codec, "audioCodec": audio_codec}
+    meta = {"container": container, "videoCodec": video_codec, "audioCodec": audio_codec,
+            "recordedAt": recorded_at(info, local_offset_min)}
     if video:
         meta.update({"width": video.get("width"), "height": video.get("height"),
                      "fps": _rate(video.get("avg_frame_rate"))})
@@ -264,17 +342,22 @@ class MediaController:
         return media
 
     # -- upload ----------------------------------------------------------------
-    def upload(self, dataset_id, project_id, fileobj, filename, background_tasks, kind=None, name=None, start=None):
+    def upload(self, dataset_id, project_id, fileobj, filename, background_tasks, kind=None, name=None, start=None,
+               file_modified=None, local_offset_min=0):
         """Store an uploaded file as a recording of the dataset.
 
         `fileobj` is the open upload. The checks happen before anything is
         stored, so a file that is listed can always be played.
+
+        Without `start` the recording is placed by `place()`.
+        `file_modified` is the file's modification time (unix ms) as the
+        uploader saw it, used when nothing better is known.
+        `local_offset_min` is the uploader's time zone (minutes east of UTC),
+        for times stored in the file without a zone.
         """
         dataset = self._dataset(dataset_id, project_id)
         if kind is not None and kind not in KINDS:
             raise _bad_request("kind must be 'audio' or 'video'")
-        if start is None:
-            start = self._default_start(dataset)
 
         fd, path = tempfile.mkstemp(prefix="media_")
         keep = False
@@ -291,7 +374,11 @@ class MediaController:
                     out.write(chunk)
             if size == 0:
                 raise _bad_request("The file is empty")
-            info = probe(path, kind)
+            info = probe(path, kind, local_offset_min)
+            if start is None:
+                start, start_source = self.place(dataset, info, file_modified)
+            else:
+                start_source = "upload"
             media_id = ObjectId()
             mediaStore.save_file(str(media_id), path)
             media = self.dbm.addMedia(dataset_id, project_id, {
@@ -304,6 +391,7 @@ class MediaController:
                 "mimeType": info["mimeType"],
                 "size": size,
                 "status": "processing" if info["hasAudio"] else "ready",
+                "startSource": start_source,
                 "meta": info["meta"],
             })
             if media is None:  # the dataset was deleted in the meantime
@@ -317,13 +405,39 @@ class MediaController:
             if not keep:
                 os.remove(path)
 
-    def _default_start(self, dataset):
-        """Where a recording goes when the upload does not say: the beginning
-        of the dataset, or now when the dataset is still empty."""
-        starts = [t["start"] for t in dataset.get("timeSeries", [])
-                  if t.get("start") is not None and t.get("end") is not None and t["start"] <= t["end"]]
-        starts += [m["start"] for m in dataset.get("mediaSeries", [])]
-        return min(starts) if starts else int(time.time() * 1000)
+    @staticmethod
+    def _span(dataset):
+        """(start, end) of the data a dataset already holds, or None."""
+        spans = [(t["start"], t["end"]) for t in dataset.get("timeSeries", [])
+                 if t.get("start") is not None and t.get("end") is not None and t["start"] <= t["end"]]
+        spans += [(m["start"], m["end"]) for m in dataset.get("mediaSeries", [])]
+        if not spans:
+            return None
+        return min(s for s, _ in spans), max(e for _, e in spans)
+
+    def place(self, dataset, info, file_modified=None):
+        """Where a recording goes when the upload does not say, and why:
+
+        1. the time stored in the file ("metadata"), if the dataset is empty
+           or the recording then overlaps its data (give or take
+           PLACE_TOLERANCE_MS). A camera clock set to the wrong day or zone
+           would otherwise put it far away from the sensor data.
+        2. for an empty dataset: the file's modification time minus the
+           length, as recorders save the file when they stop ("fileTime")
+        3. the start of the dataset ("dataset"), or now ("now")
+        """
+        span = self._span(dataset)
+        duration = info["durationMs"]
+        recorded = info["meta"].get("recordedAt")
+        if recorded is not None and (span is None or (
+                recorded - PLACE_TOLERANCE_MS <= span[1] and recorded + duration + PLACE_TOLERANCE_MS >= span[0])):
+            return recorded, "metadata"
+        if span is not None:
+            return span[0], "dataset"
+        moment = _parse_ms(file_modified)
+        if moment is not None:
+            return moment - duration, "fileTime"
+        return int(time.time() * 1000), "now"
 
     def process(self, dataset_id, project_id, media_id, path, duration_ms):
         """Compute the waveform after the upload has been answered."""
@@ -342,7 +456,7 @@ class MediaController:
             self.deleteFiles(media_id)  # deleted while it was processed
 
     # -- changes ---------------------------------------------------------------
-    def update(self, dataset_id, project_id, media_id, name=None, start=None):
+    def update(self, dataset_id, project_id, media_id, name=None, start=None, start_source="manual"):
         media = self.get(dataset_id, project_id, media_id)
         updates = {}
         if name is not None:
@@ -352,9 +466,18 @@ class MediaController:
         if start is not None:
             updates["start"] = int(start)
             updates["end"] = int(start) + media["durationMs"]
+            updates["startSource"] = start_source
         if updates:
             self.dbm.updateMedia(dataset_id, project_id, media_id, updates)
         return {**media, **updates}
+
+    def useRecordedAt(self, dataset_id, project_id, media_id, name=None):
+        """Move a recording to the time stored in its file."""
+        media = self.get(dataset_id, project_id, media_id)
+        recorded = (media.get("meta") or {}).get("recordedAt")
+        if recorded is None:
+            raise _bad_request("The file does not say when it was recorded")
+        return self.update(dataset_id, project_id, media_id, name=name, start=recorded, start_source="metadata")
 
     def delete(self, dataset_id, project_id, media_id):
         self.get(dataset_id, project_id, media_id)
