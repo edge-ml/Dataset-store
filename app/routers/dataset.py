@@ -76,6 +76,23 @@ async def create_dataset_with_csv(CSVFile: UploadFile = File(...), CSVConfig: st
     return Response(json.dumps(metadata, cls=JSONEncoder), media_type="application/json")
 
 
+# Add the sensor data and labels of a CSV file to an existing dataset
+@router.post("/{id}/csv")
+def append_csv_to_dataset(id, CSVFile: UploadFile = File(...), CSVConfig: str = Form(...), project: str = Header(...), user_data=Depends(validate_user)):
+    try:
+        config = json.loads(CSVConfig)
+    except ValueError:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="CSVConfig is not JSON")
+    try:
+        result = ctrl.CSVAppend(id, CSVFile, config, project)
+    except HTTPException:
+        raise
+    except Exception as exp:
+        print(traceback.format_exc())
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Error while adding the file: {exp}")
+    return Response(json.dumps(result, cls=JSONEncoder), media_type="application/json")
+
+
 @router.get("/{id}/ts/{ts_id}/{start}/{end}/{max_resolution}")
 def get_time_series_partially(id, ts_id, start, end, max_resolution, project: str = Header(...), user_data=Depends(validate_user)):
     timeSeries = ctrl.getDatasetTimeSeriesStartEnd(id, ts_id, project, start, end, max_resolution)
