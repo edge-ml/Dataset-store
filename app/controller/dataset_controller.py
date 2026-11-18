@@ -217,6 +217,72 @@ class DatasetController():
         return
 
     def CSVUpload(self, file: UploadFile, config: dict, project: str, user_id: str):
+        """A new dataset from an edge-ml CSV file."""
+        dataset = self._csvToDataset(file, config, project)
+        return self.addDataset(dataset, project=project, user_id=user_id)
+
+    def CSVAppend(self, dataset_id, file: UploadFile, config: dict, project: str):
+        """Adds the time-series and labels of an edge-ml CSV file to an
+        existing dataset, e.g. a dataset that so far only holds recordings.
+
+        Series named like one the dataset already has get a number ("accX
+        (2)"). Labels that would overlap a label of the same labeling are
+        left out, as edge-ml does not allow that, and counted.
+        """
+        try:
+            dataset = self.dbm.getDatasetById(dataset_id, project)
+        except Exception:
+            dataset = None
+        if dataset is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Dataset not found")
+        parsed = self._csvToDataset(file, config, project)
+
+        taken = {t["name"] for t in dataset.get("timeSeries", [])}
+        new_series = []
+        stored = []
+        try:
+            for ts in parsed["timeSeries"]:
+                name, n = ts["name"], 2
+                while name in taken:
+                    name, n = f'{ts["name"]} ({n})', n + 1
+                taken.add(name)
+                ts_id = ObjectId()
+                start, end, sampling_rate, length = BinaryStore(ts_id).append(ts["data"])
+                stored.append(ts_id)
+                new_series.append({"_id": ts_id, "name": name, "unit": ts["unit"], "quantity": ts["quantity"],
+                                   "start": start, "end": end, "samplingRate": sampling_rate, "length": length})
+
+            skipped = 0
+            labelings = dataset.get("labelings", [])
+            for incoming in parsed["labelings"]:
+                target = next((l for l in labelings if str(l["labelingId"]) == str(incoming["labelingId"])), None)
+                if target is None:
+                    target = {"labelingId": incoming["labelingId"], "labels": []}
+                    labelings.append(target)
+                for label in incoming["labels"]:
+                    if any(max(old["start"], label["start"]) <= min(old["end"], label["end"]) for old in target["labels"]):
+                        skipped += 1
+                        continue
+                    target["labels"].append({**label, "_id": ObjectId()})
+            labelings = [l for l in labelings if l["labels"]]
+
+            dataset["timeSeries"] = dataset.get("timeSeries", []) + new_series
+            dataset["labelings"] = labelings
+            self.dbm.updateDataset(dataset_id, project, dataset)
+        except Exception:
+            for ts_id in stored:
+                BinaryStore(ts_id).delete()
+            raise
+        return {
+            "dataset": self.dbm.getDatasetById(dataset_id, project),
+            "added": [t["name"] for t in new_series],
+            "skippedLabels": skipped,
+        }
+
+    def _csvToDataset(self, file: UploadFile, config: dict, project: str):
+        """Parses an edge-ml CSV file as configured in the upload dialog into
+        a dataset (series with their values, labels). Creates the labelings
+        and labels it names in the project."""
         name = config['name'] if config['name'] else (
             file.filename[:-4] if file.filename.endswith('.csv') else file.filename)
         try:
@@ -300,8 +366,7 @@ class DatasetController():
             } for sensor_idx, sensor in enumerate(sensor_names)],
             'labelings': labelingsInDatasetFormat
         }
-        metadata = self.addDataset(dataset, project=project, user_id=user_id)
-        return metadata
+        return dataset
 
     def externalUpload(self, api_key, user_id, body):
         # Get labels from dataset
