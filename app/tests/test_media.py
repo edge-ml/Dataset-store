@@ -430,3 +430,123 @@ class TestDownload:
         response = asyncio.run(get_download_data("pr"))
         assert response.headers["Content-Length"] == str(os.path.getsize(entry["filePath"]))
         os.remove(entry["filePath"])
+
+
+# ---- start time from the file (#97) -------------------------------------------
+
+from controller.media_controller import _parse_time, recorded_at  # noqa: E402
+
+T_FILE = 1794478272000  # 2026-11-12T10:11:12Z
+
+
+@pytest.fixture(scope="session")
+def timed(tmp_path_factory):
+    d = tmp_path_factory.mktemp("timed")
+    tone = ["-f", "lavfi", "-i", "sine=frequency=440:duration=2"]
+    picture = ["-f", "lavfi", "-i", "testsrc=duration=2:size=64x48:rate=10"]
+    return {
+        "mp4": _ffmpeg(d / "phone.mp4", *picture, *tone, "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac",
+                       "-shortest", "-metadata", "creation_time=2026-11-12T10:11:12.000000Z"),
+        "wav": _ffmpeg(d / "field.wav", *tone, "-write_bext", "1", "-metadata", "origination_date=2026-11-12",
+                       "-metadata", "origination_time=10:11:12"),
+        "m4a": _ffmpeg(d / "memo.m4a", *tone, "-metadata", "creation_time=2026-11-12T10:11:12Z"),
+        "clockless": _ffmpeg(d / "old-camera.mp4", *picture, "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                             "-metadata", "creation_time=1970-01-01T00:00:00Z"),
+    }
+
+
+class TestRecordedAt:
+    def test_parse(self):
+        assert _parse_time("2026-11-12T10:11:12.000000Z") == T_FILE
+        assert _parse_time("2026-11-12T11:11:12+0100") == T_FILE
+        assert _parse_time("2026-11-12T11:11:12+01:00") == T_FILE
+        assert _parse_time("2026-11-12 10:11:12") == T_FILE  # no zone: UTC unless told
+        assert _parse_time("2026-11-12 11:11:12", local_offset_min=60) == T_FILE
+        assert _parse_time("2026-11-12T10:11:12.1234567Z") == T_FILE + 123
+        for useless in ("2026", "2026-11-12", "1970-01-01T00:00:00Z", "2999-01-01T00:00:00Z", "soon", None, 5):
+            assert _parse_time(useless) is None
+
+    def test_tags(self):
+        apple = {"format": {"tags": {"creation_time": "2026-11-12T09:00:00Z",
+                                     "com.apple.quicktime.creationdate": "2026-11-12T11:11:12+0100"}}}
+        assert recorded_at(apple) == T_FILE  # Apple's tag wins
+        stream_only = {"format": {"tags": {}}, "streams": [{"tags": {"CREATION_TIME": "2026-11-12T10:11:12Z"}}]}
+        assert recorded_at(stream_only) == T_FILE
+        bwf = {"format": {"tags": {"date": "2026-11-12", "creation_time": "11:11:12"}}}
+        assert recorded_at(bwf, local_offset_min=60) == T_FILE
+        assert recorded_at({"format": {"tags": {"date": "2026"}}}) is None
+        assert recorded_at({}) is None
+
+    def test_probe(self, timed):
+        assert probe(str(timed["mp4"]))["meta"]["recordedAt"] == T_FILE
+        assert probe(str(timed["m4a"]))["meta"]["recordedAt"] == T_FILE
+        assert probe(str(timed["wav"]))["meta"]["recordedAt"] == T_FILE
+        assert probe(str(timed["wav"]), local_offset_min=60)["meta"]["recordedAt"] == T_FILE - 3_600_000
+        assert probe(str(timed["clockless"]))["meta"]["recordedAt"] is None
+
+
+class TestPlacement:
+    def _new(self, client, seeder, time_series=None):
+        seeder.project()
+        return seeder.dataset(time_series=time_series)
+
+    def test_empty_dataset_uses_the_files_time(self, client, seeder, timed):
+        ds = self._new(client, seeder, time_series=[])
+        body = _upload(client, seeder, ds, timed["mp4"]).json()
+        assert (body["start"], body["startSource"]) == (T_FILE, "metadata")
+        assert body["meta"]["recordedAt"] == T_FILE
+
+    def test_used_when_it_overlaps_the_sensor_data(self, client, seeder, timed):
+        ds = self._new(client, seeder, time_series=[{"name": "a", "start": T_FILE - 30_000, "end": T_FILE + 30_000}])
+        body = _upload(client, seeder, ds, timed["mp4"]).json()
+        assert (body["start"], body["startSource"]) == (T_FILE, "metadata")
+
+    def test_a_wrong_clock_does_not_tear_the_dataset_apart(self, client, seeder, timed):
+        # sensor data from a day earlier: the file's time is kept, not used
+        day = 86_400_000
+        ds = self._new(client, seeder, time_series=[{"name": "a", "start": T_FILE - day, "end": T_FILE - day + 60_000}])
+        body = _upload(client, seeder, ds, timed["mp4"]).json()
+        assert (body["start"], body["startSource"]) == (T_FILE - day, "dataset")
+        assert body["meta"]["recordedAt"] == T_FILE
+        # and can be applied on request
+        url = f"/ds/datasets/{ds['_id']}/media/{body['_id']}"
+        moved = client.put(url, headers=seeder.headers(), cookies=seeder.cookies(), json={"useRecordedAt": True}).json()
+        assert (moved["start"], moved["end"], moved["startSource"]) == (T_FILE, T_FILE + body["durationMs"], "metadata")
+
+    def test_file_modification_time_for_files_without_one(self, client, seeder, files, timed):
+        ds = self._new(client, seeder, time_series=[])
+        modified = T_FILE + 60_000
+        body = _upload(client, seeder, ds, files["mp3"], fileModified=modified).json()
+        assert body["startSource"] == "fileTime"
+        assert body["start"] == modified - body["durationMs"]
+        # a recording without either goes to the start of the data, as before
+        body = _upload(client, seeder, ds, timed["clockless"], fileModified="garbage").json()
+        assert (body["start"], body["startSource"]) == (modified - _media(seeder, ds)[0]["durationMs"], "dataset")
+
+    def test_given_start_wins_and_moving_marks_it_manual(self, client, seeder, timed):
+        ds = self._new(client, seeder, time_series=[])
+        body = _upload(client, seeder, ds, timed["mp4"], start=5000).json()
+        assert (body["start"], body["startSource"]) == (5000, "upload")
+        url = f"/ds/datasets/{ds['_id']}/media/{body['_id']}"
+        moved = client.put(url, headers=seeder.headers(), cookies=seeder.cookies(), json={"start": 6000}).json()
+        assert moved["startSource"] == "manual"
+
+    def test_time_zone_of_the_uploader(self, client, seeder, timed):
+        ds = self._new(client, seeder, time_series=[])
+        body = _upload(client, seeder, ds, timed["wav"], timeZoneOffset=60).json()
+        assert body["start"] == T_FILE - 3_600_000
+
+    def test_use_recorded_at_needs_a_time(self, client, seeder, files):
+        ds = self._new(client, seeder, time_series=[])
+        body = _upload(client, seeder, ds, files["mp3"]).json()
+        url = f"/ds/datasets/{ds['_id']}/media/{body['_id']}"
+        r = client.put(url, headers=seeder.headers(), cookies=seeder.cookies(), json={"useRecordedAt": True})
+        assert r.status_code == 400 and "does not say" in r.json()["detail"]
+
+    def test_device_api_places_by_the_file_too(self, client, seeder, timed):
+        seeder.project()
+        key = seeder.api_key()
+        dataset_id = client.post(f"/ds/api/dataset/init/{key}", json={"name": "d", "timeSeries": []}).json()["id"]
+        with open(timed["m4a"], "rb") as f:
+            body = client.post(f"/ds/api/dataset/media/{key}/{dataset_id}", files={"file": f}).json()
+        assert (body["start"], body["startSource"]) == (T_FILE, "metadata")

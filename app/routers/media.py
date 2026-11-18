@@ -25,9 +25,18 @@ def _json(data, status_code=200):
     return Response(json.dumps(data, cls=JSONEncoder), status_code=status_code, media_type="application/json")
 
 
+def _offset(value):
+    """Minutes east of UTC, as sent by the uploader; 0 if absent or odd."""
+    try:
+        minutes = int(float(value))
+    except (TypeError, ValueError):
+        return 0
+    return minutes if -14 * 60 <= minutes <= 14 * 60 else 0
+
+
 async def receive_media(request: Request, dataset_id, project_id, background_tasks: BackgroundTasks):
-    """Read a multipart upload (file, and optionally kind, name, start) and
-    store it. The body is only read here, after the caller is authenticated."""
+    """Read a multipart upload (file, and optionally kind, name, start,
+    fileModified, timeZoneOffset) and store it. The body is only read here, after the caller is authenticated."""
     length = request.headers.get("content-length")
     # the form fields and boundaries add a little on top of the file
     if length and length.isdigit() and int(length) > MEDIA_MAX_SIZE_BYTES + 1024 * 1024:
@@ -49,7 +58,9 @@ async def receive_media(request: Request, dataset_id, project_id, background_tas
             start = None
         media = await run_in_threadpool(
             ctrl.upload, dataset_id, project_id, file.file, file.filename, background_tasks,
-            kind=form.get("kind") or None, name=form.get("name") or None, start=start)
+            kind=form.get("kind") or None, name=form.get("name") or None, start=start,
+            file_modified=form.get("fileModified") or None,
+            local_offset_min=_offset(form.get("timeZoneOffset")))
     finally:
         await form.close()
     return _json(media, status.HTTP_201_CREATED)
@@ -64,10 +75,14 @@ class MediaUpdate(BaseModel):
     name: Optional[str] = None
     # unix ms; moves the recording against the sensor data
     start: Optional[int] = None
+    # true: move it to the time stored in the file (meta.recordedAt)
+    useRecordedAt: bool = False
 
 
 @router.put("/{id}/media/{media_id}")
 def update_media(id, media_id, body: MediaUpdate, project: str = Header(...), user_data=Depends(validate_user)):
+    if body.useRecordedAt:
+        return _json(ctrl.useRecordedAt(id, project, media_id, name=body.name))
     return _json(ctrl.update(id, project, media_id, name=body.name, start=body.start))
 
 

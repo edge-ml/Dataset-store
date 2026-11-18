@@ -47,6 +47,10 @@ class MediaSeries(BaseModel):
     size: int  # bytes
     status: str = "ready"  # "processing" while the waveform is computed
     hasPeaks: bool = False
+    # how `start` was chosen: "upload" (given), "metadata" (time stored in the
+    # file), "fileTime" (file modification time), "dataset" (start of the
+    # dataset), "now", or "manual" (moved later); None before this existed
+    startSource: Optional[str] = None
     meta: Dict[str, Union[str, int, float, None]] = Field(default={})
 
 
